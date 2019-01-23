@@ -83,9 +83,9 @@ createPicture Picture {..} = bracket (connect connectInfo) close $ \conn -> do
     pictureQuery = "INSERT INTO pictures(file_path) VALUES (?) RETURNING *;"
 
 createComment :: Comment -> IO Comment
-createComment commentRaw = bracket (connect connectInfo) close $ \conn -> do
-    (picture : _) <- query conn commentQuery commentRaw
-    pure picture
+createComment Comment {..} = bracket (connect connectInfo) close $ \conn -> do
+    (comment : _) <- query conn commentQuery (commentNewsId, commentUserId, commentText)
+    pure comment
   where
     commentQuery
         = "INSERT INTO news_comments(news_id, user_id, text) \
