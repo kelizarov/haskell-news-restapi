@@ -1,18 +1,50 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE RecordWildCards #-}
 module Serializers where
 
-import Data.Text
-import Data.Time as Time
+import           Data.Text
+import           Data.Aeson
+import           Models
+import           GHC.Generics
+import           Data.Time                     as Time
 
 data SerializedUser = SerializedUser {
     serializedUserId :: Int,
     serializedUserFirstName :: Text,
     serializedUserLastName :: Text,
-    serializedUserPicture :: SerializedPicture,
+    -- serializedUserPicture :: SerializedPicture,
     serializedUserCreatedOn :: Time.UTCTime,
-    serializedUserIsAdmin :: Bool,
-    serializedUserComments :: [SerializedComment]
+    serializedUserIsAdmin :: Bool
+    -- serializedUserComments :: [SerializedComment]
 } deriving Show
+
+instance ToJSON SerializedUser where
+    toJSON SerializedUser {..} = object
+        [ "id" .= serializedUserId
+        , "first_name" .= serializedUserFirstName
+        , "last_name" .= serializedUserLastName
+        , "created_on" .= serializedUserCreatedOn
+        , "is_admin" .= serializedUserIsAdmin
+        ]
+
+serializeUser :: User -> SerializedUser
+serializeUser User {..} = SerializedUser
+    { serializedUserId        = userId
+    , serializedUserFirstName = userFirstName
+    , serializedUserLastName  = userLastName
+    , serializedUserCreatedOn = userCreatedOn
+    , serializedUserIsAdmin   = userIsAdmin
+    }
+
+data CreateUserRaw = CreateUserRaw {
+    createUserRawFirstName :: Text,
+    createUserRawLastName :: Text
+} deriving (Show, Eq, Generic)
+
+instance FromJSON CreateUserRaw where
+    parseJSON (Object v) =
+        CreateUserRaw <$> v .: "first_name" <*> v .: "last_name"
 
 data SerializedAuthor = SerializedAuthor {
     serializedAuthorId :: Int,
@@ -55,17 +87,3 @@ data SerializedComment = SerializedComment {
     serializedCommentUser :: SerializedUser,
     serializedCommentText :: Text
 } deriving Show
-
-serializeUser userData = undefined
-
-serializeAuthor authorData = undefined
-
-serializerNews newsData = undefined
-
-serializeTag tagData = undefined
-
-serializeCategory categoryData = undefined
-
-serializedComment commentData = undefined
-
-serializedPicture pictureData = undefined

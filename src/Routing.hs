@@ -3,13 +3,17 @@ module Routing where
 
 import           Network.HTTP.Types
 import           Network.Wai
+import           Database
+import           Models
+import           Serializers
 import           Data.Text
+import           Data.Aeson
 import qualified Data.ByteString.Char8         as BS
 import qualified Data.ByteString.Lazy.Internal as LBS
 
 data Route = PathRoute Text Route | DynamicRoute Text Route | MethodRoute Method
 
-type Handler = Request -> Response
+type Handler = Request -> IO Response
 
 rootRoute :: Route
 rootRoute = MethodRoute "GET"
@@ -23,7 +27,21 @@ retrieveUserRoute =
 
 updateUserRoute :: Route
 updateUserRoute =
-    PathRoute "api" $ PathRoute "users" $ DynamicRoute "pk" $ MethodRoute "GET"
+    PathRoute "api" $ PathRoute "users" $ DynamicRoute "pk" $ MethodRoute
+        "PATCH"
+
+createAuthorRoute :: Route
+createAuthorRoute = PathRoute "api" $ PathRoute "authors" $ MethodRoute "POST"
+
+retrieveAuthorRoute :: Route
+retrieveAuthorRoute =
+    PathRoute "api" $ PathRoute "authors" $ DynamicRoute "pk" $ MethodRoute
+        "GET"
+
+updateAuthorRoute :: Route
+updateAuthorRoute =
+    PathRoute "api" $ PathRoute "authors" $ DynamicRoute "pk" $ MethodRoute
+        "PATCH"
 
 responseOk :: LBS.ByteString -> Response
 responseOk = responseLBS status200 [(hContentType, "text/plain")]
@@ -32,13 +50,23 @@ responseError :: LBS.ByteString -> Response
 responseError = responseLBS status400 [(hContentType, "text/plain")]
 
 createUserHandler :: Handler
-createUserHandler _ = responseOk "Create User Route!"
+createUserHandler req = do
+    body <- strictRequestBody req
+    case eitherDecode body of
+        Left  s -> return $ responseError $ encode s
+        Right d -> do
+            user <- insertUser userDefault
+                { userFirstName = createUserRawFirstName d
+                , userLastName  = createUserRawLastName d
+                }
+            return $ responseOk $ encode (serializeUser user)
+
 
 retrieveUserHandler :: Handler
-retrieveUserHandler _ = responseOk "Retrive User Route!"
+retrieveUserHandler _ = pure $ responseOk "Retrive User Route!"
 
 updateUserHandler :: Handler
-updateUserHandler _ = responseOk "Update User Route!"    
+updateUserHandler _ = pure $ responseOk "Update User Route!"
 
 routes :: [(Route, Handler)]
 routes =
@@ -60,5 +88,5 @@ routeExists (DynamicRoute _ rs) (_ : xs) method = routeExists rs xs method
 route :: [(Route, Handler)] -> Request -> IO Response
 route [] req = pure $ responseError "Not Found!"
 route (x : xs) req
-    | routeExists (fst x) (pathInfo req) (requestMethod req) = pure $ snd x req
+    | routeExists (fst x) (pathInfo req) (requestMethod req) = snd x req
     | otherwise = route xs req
