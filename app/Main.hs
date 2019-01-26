@@ -5,6 +5,7 @@ import           Network.Wai
 import           Network.HTTP.Types
 import           Network.Wai.Handler.Warp       ( run )
 import qualified Data.ByteString.Char8         as BS
+import Routing (route, routes)
 
 withLogging :: Middleware
 withLogging app req respond = app req $ \response -> do
@@ -25,8 +26,7 @@ withLogging app req respond = app req $ \response -> do
     statusOf = show . statusCode . responseStatus
 
 application :: Application
-application _ respond = respond
-    $ responseLBS status200 [(hContentType, "text/plain")] "Hello, world!"
+application req respond = route routes req >>= respond
 
 main :: IO ()
 main = do

@@ -3,17 +3,20 @@
 module Models where
 
 import           Data.Text
-import           Data.Time
+import           Data.Time                     as Time
 import           Database.PostgreSQL.Simple.ToRow
 import           Database.PostgreSQL.Simple.FromRow
 import           Database.PostgreSQL.Simple.ToField
+
+defaultToday :: Time.Day
+defaultToday = Time.fromGregorian 1970 1 1
 
 data User = User {
     userId :: Int,
     userFirstName :: Text,
     userLastName :: Text,
     userPicture :: Maybe Int,
-    userCreatedOn :: LocalTime,
+    userCreatedOn :: Time.UTCTime,
     userIsAdmin :: Bool
 } deriving Show
 
@@ -21,7 +24,7 @@ userDefault = User { userId        = -1
                    , userFirstName = ""
                    , userLastName  = ""
                    , userPicture   = Nothing
-                   , userCreatedOn = undefined
+                   , userCreatedOn = UTCTime defaultToday 0
                    , userIsAdmin   = False
                    }
 
@@ -82,23 +85,26 @@ instance ToRow Tag where
 
 data Comment = Comment {
     commentId :: Int,
+    commentCreatedOn :: Time.UTCTime,
     commentNewsId :: Int,
     commentUserId :: Int,
     commentText :: Text
 } deriving Show
 
-commentDefault = Comment { commentId     = -1
-                         , commentNewsId = -1
-                         , commentUserId = -1
-                         , commentText   = ""
+commentDefault = Comment { commentId        = -1
+                         , commentCreatedOn = UTCTime defaultToday 0
+                         , commentNewsId    = -1
+                         , commentUserId    = -1
+                         , commentText      = ""
                          }
 
 instance FromRow Comment where
-    fromRow = Comment <$> field <*> field <*> field <*> field
+    fromRow = Comment <$> field <*> field <*> field <*> field <*> field
 
 instance ToRow Comment where
     toRow Comment {..} =
         [ toField commentId
+        , toField commentCreatedOn
         , toField commentNewsId
         , toField commentUserId
         , toField commentText
@@ -106,21 +112,26 @@ instance ToRow Comment where
 
 data Picture = Picture {
     pictureId :: Int,
+    pictureCreatedOn :: Time.UTCTime,
     pictureFilePath :: Text
 } deriving Show
 
-pictureDefault = Picture { pictureId = -1, pictureFilePath = "" }
+pictureDefault = Picture { pictureId        = -1
+                         , pictureCreatedOn = UTCTime defaultToday 0
+                         , pictureFilePath  = ""
+                         }
 
 instance FromRow Picture where
-    fromRow = Picture <$> field <*> field
+    fromRow = Picture <$> field <*> field <*> field
 
 instance ToRow Picture where
-    toRow Picture {..} = [toField pictureId, toField pictureFilePath]
+    toRow Picture {..} =
+        [toField pictureId, toField pictureCreatedOn, toField pictureFilePath]
 
 data News = News {
     newsId :: Int,
     newsTitle :: Text,
-    newsCreatedOn :: LocalTime,
+    newsCreatedOn :: Time.UTCTime,
     newsAuthor :: Int,
     newsCategory :: Maybe Int,
     newsContent :: Text,
@@ -130,7 +141,7 @@ data News = News {
 
 defaultNews = News { newsId        = -1
                    , newsTitle     = ""
-                   , newsCreatedOn = undefined
+                   , newsCreatedOn = UTCTime defaultToday 0
                    , newsAuthor    = -1
                    , newsCategory  = Nothing
                    , newsContent   = ""

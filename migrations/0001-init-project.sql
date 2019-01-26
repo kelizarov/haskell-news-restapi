@@ -1,5 +1,6 @@
 CREATE TABLE pictures (
     id serial PRIMARY KEY,
+    created_on timestamp with time zone NOT NULL,
     file_path varchar (255) NOT NULL
 );
 
@@ -8,7 +9,7 @@ CREATE TABLE users (
     first_name varchar (255) NOT NULL,
     last_name varchar (255) NOT NULL,
     user_picture integer REFERENCES pictures,
-    created_on timestamp NOT NULL,
+    created_on timestamp with time zone NOT NULL,
     is_admin boolean DEFAULT false
 );
 
@@ -26,7 +27,7 @@ CREATE TABLE news_categories (
 CREATE TABLE news_objects (
     id serial PRIMARY KEY,
     title varchar (255) NOT NULL,
-    created_on timestamp NOT NULL,
+    created_on timestamp with time zone NOT NULL,
     author integer REFERENCES authors,
     category integer REFERENCES news_categories,
     content text,
@@ -48,6 +49,7 @@ CREATE TABLE news_tags (
 
 CREATE TABLE news_comments (
     id serial PRIMARY KEY,
+    created_on timestamp with time zone NOT NULL,
     news_id integer REFERENCES news_objects,
     user_id integer REFERENCES users,
     text text

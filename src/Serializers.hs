@@ -1,17 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
-
-
 module Serializers where
 
 import Data.Text
-import Data.Time
+import Data.Time as Time
 
 data SerializedUser = SerializedUser {
     serializedUserId :: Int,
     serializedUserFirstName :: Text,
     serializedUserLastName :: Text,
     serializedUserPicture :: SerializedPicture,
-    serializedUserCreatedOn :: LocalTime,
+    serializedUserCreatedOn :: Time.UTCTime,
     serializedUserIsAdmin :: Bool,
     serializedUserComments :: [SerializedComment]
 } deriving Show

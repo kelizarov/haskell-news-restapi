@@ -25,28 +25,27 @@ migrate = bracket (connect connectInfo) close $ \conn -> do
         _                  -> return ()
     where cmds = [MigrationInitialization, MigrationDirectory "./migrations"]
 
-createUser :: User -> IO User
-createUser User {..} = bracket (connect connectInfo) close $ \conn -> do
-    (user : _) <- query conn userQuery (userFirstName, userLastName)
-    pure user
+insertUser :: User -> IO User
+insertUser User {..} = bracket (connect connectInfo) close $ \conn -> do
+    (obj : _) <- query conn q (userFirstName, userLastName)
+    pure obj
   where
-    userQuery
+    q
         = "INSERT INTO users(first_name, last_name, created_on) \
             \VALUES (?, ?, CURRENT_TIMESTAMP) RETURNING *;"
 
-createAuthor :: Author -> IO Author
-createAuthor Author {..} = bracket (connect connectInfo) close $ \conn -> do
-    (author : _) <- query conn authorQuery (authorUserId, authorDescription)
-    pure author
+insertAuthor :: Author -> IO Author
+insertAuthor Author {..} = bracket (connect connectInfo) close $ \conn -> do
+    (obj : _) <- query conn q (authorUserId, authorDescription)
+    pure obj
   where
-    authorQuery =
-        "INSERT INTO authors(user_id, description) VALUES (?, ?) RETURNING *;"
+    q = "INSERT INTO authors(user_id, description) VALUES (?, ?) RETURNING *;"
 
-createNews :: News -> IO News
-createNews News {..} = bracket (connect connectInfo) close $ \conn -> do
-    (news : _) <- query
+insertNews :: News -> IO News
+insertNews News {..} = bracket (connect connectInfo) close $ \conn -> do
+    (obj : _) <- query
         conn
-        newsQuery
+        q
         ( newsTitle
         , newsAuthor
         , newsCategory
@@ -54,60 +53,137 @@ createNews News {..} = bracket (connect connectInfo) close $ \conn -> do
         , newsPicture
         , newsIsDraft
         )
-    pure news
+    pure obj
   where
-    newsQuery
-        = "INSERT INTO news(title, author, category, content, picture, is_draft) \
-        \ VALUES (?, ?, ?, ?, ?, ?)\
+    q
+        = "INSERT INTO news_objects(title, author, category, content, picture, is_draft, created_on) \
+        \ VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)\
         \ RETURNING *;"
 
-createCategory :: Category -> IO Category
-createCategory Category {..} = bracket (connect connectInfo) close $ \conn ->
+insertCategory :: Category -> IO Category
+insertCategory Category {..} = bracket (connect connectInfo) close $ \conn ->
     do
-        (category : _) <- query conn categoryQuery [categoryName]
+        (category : _) <- query conn q [categoryName]
         pure category
+    where q = "INSERT INTO news_categories(name) VALUES (?) RETURNING *;"
+
+insertTag :: Tag -> IO Tag
+insertTag Tag {..} = bracket (connect connectInfo) close $ \conn -> do
+    (obj : _) <- query conn q [tagName]
+    pure obj
+    where q = "INSERT INTO tags(name) VALUES (?) RETURNING *;"
+
+insertPicture :: Picture -> IO Picture
+insertPicture Picture {..} = bracket (connect connectInfo) close $ \conn -> do
+    (obj : _) <- query conn q [pictureFilePath]
+    pure obj
+    where q = "INSERT INTO pictures(file_path) VALUES (?) RETURNING *;"
+
+insertComment :: Comment -> IO Comment
+insertComment Comment {..} = bracket (connect connectInfo) close $ \conn -> do
+    (obj : _) <- query conn q (commentNewsId, commentUserId, commentText)
+    pure obj
   where
-    categoryQuery = "INSERT INTO news_categories(name) VALUES (?) RETURNING *;"
+    q
+        = "INSERT INTO news_comments(news_id, user_id, text, created_on) \
+        \VALUES (?, ?, ?, CURRENT_TIMESTAMP) RETURNING *;"
 
-createTag :: Tag -> IO Tag
-createTag Tag {..} = bracket (connect connectInfo) close $ \conn -> do
-    (tag : _) <- query conn tagQuery [tagName]
-    pure tag
-    where tagQuery = "INSERT INTO tags(name) VALUES (?) RETURNING *;"
+selectUser :: Int -> IO (Maybe User)
+selectUser id = bracket (connect connectInfo) close $ \conn -> do
+    res <- query conn q [id]
+    case res of
+        []        -> pure Nothing
+        (obj : _) -> pure $ Just obj
+    where q = "SELECT * FROM users WHERE id = ?;"
 
-createPicture :: Picture -> IO Picture
-createPicture Picture {..} = bracket (connect connectInfo) close $ \conn -> do
-    (picture : _) <- query conn pictureQuery [pictureFilePath]
-    pure picture
+selectAuthor :: Int -> IO (Maybe Author)
+selectAuthor id = bracket (connect connectInfo) close $ \conn -> do
+    res <- query conn q [id]
+    case res of
+        []        -> pure Nothing
+        (obj : _) -> pure $ Just obj
+    where q = "SELECT * FROM authors WHERE id = ?;"
+
+selectNews :: Int -> IO (Maybe News)
+selectNews id = bracket (connect connectInfo) close $ \conn -> do
+    res <- query conn q [id]
+    case res of
+        []        -> pure Nothing
+        (obj : _) -> pure $ Just obj
+    where q = "SELECT * FROM news_objects WHERE id = ?;"
+
+selectCategory :: Int -> IO (Maybe Category)
+selectCategory id = bracket (connect connectInfo) close $ \conn -> do
+    res <- query conn q [id]
+    case res of
+        []        -> pure Nothing
+        (obj : _) -> pure $ Just obj
+    where q = "SELECT * FROM news_categories WHERE id = ?;"
+
+selectTag :: Int -> IO (Maybe Tag)
+selectTag id = bracket (connect connectInfo) close $ \conn -> do
+    res <- query conn q [id]
+    case res of
+        []        -> pure Nothing
+        (obj : _) -> pure $ Just obj
+    where q = "SELECT * FROM tags WHERE id = ?;"
+
+selectPicture :: Int -> IO (Maybe Picture)
+selectPicture id = bracket (connect connectInfo) close $ \conn -> do
+    res <- query conn q [id]
+    case res of
+        []        -> pure Nothing
+        (obj : _) -> pure $ Just obj
+    where q = "SELECT * FROM pictures WHERE id = ?;"
+
+selectComment :: Int -> IO (Maybe Comment)
+selectComment id = bracket (connect connectInfo) close $ \conn -> do
+    res <- query conn q [id]
+    case res of
+        []        -> pure Nothing
+        (obj : _) -> pure $ Just obj
+    where q = "SELECT * FROM news_comments WHERE id = ?;"
+
+updateUser :: User -> IO (Maybe User)
+updateUser User {..} = bracket (connect connectInfo) close $ \conn -> do
+    res <- query
+        conn
+        q
+        (userFirstName, userLastName, userPicture, userIsAdmin, userId)
+    case res of
+        []        -> pure Nothing
+        (obj : _) -> pure $ Just obj
   where
-    pictureQuery = "INSERT INTO pictures(file_path) VALUES (?) RETURNING *;"
+    q
+        = "UPDATE users SET (first_name, last_name, user_picture, is_admin) = \
+        \(?, ?, ?, ?) WHERE id = ? RETURNING *; "
 
-createComment :: Comment -> IO Comment
-createComment Comment {..} = bracket (connect connectInfo) close $ \conn -> do
-    (comment : _) <- query conn commentQuery (commentNewsId, commentUserId, commentText)
-    pure comment
+updateAuthor :: Author -> IO (Maybe Author)
+updateAuthor Author {..} = bracket (connect connectInfo) close $ \conn -> do
+    res <- query conn q (authorDescription, authorId)
+    case res of
+        []        -> pure Nothing
+        (obj : _) -> pure $ Just obj
+    where q = "UPDATE authors SET (description) = (?) WHERE id = ?;"
+
+updateNews :: News -> IO (Maybe News)
+updateNews News {..} = bracket (connect connectInfo) close $ \conn -> do
+    res <- query
+        conn
+        q
+        (newsTitle, newsCategory, newsContent, newsPicture, newsIsDraft, newsId)
+    case res of
+        []        -> pure Nothing
+        (obj : _) -> pure $ Just obj
   where
-    commentQuery
-        = "INSERT INTO news_comments(news_id, user_id, text) \
-        \VALUES (?, ?, ?) RETURNING *;"
+    q
+        = "UPDATE news_objects SET (title, category, content, picture, is_draft)\
+        \ = (?, ?, ?, ?, ?) WHERE id = ?;"
 
-getUser :: Int -> IO User
-getUser userId = undefined
-
-getAuthor :: Int -> IO Author
-getAuthor authorId = undefined
-
-getNews :: Int -> IO News
-getNews newsId = undefined
-
-getCategory :: Int -> IO Category
-getCategory categoryId = undefined
-
-getTag :: Int -> IO Tag
-getTag tagId = undefined
-
-getPicture :: Int -> IO Picture
-getPicture pictureId = undefined
-
-getComment :: Int -> IO Comment
-getComment commentId = undefined
+updateComment :: Comment -> IO (Maybe Comment)
+updateComment Comment {..} = bracket (connect connectInfo) close $ \conn -> do
+    res <- query conn q (commentText, commentText)
+    case res of
+        [] -> pure Nothing
+        (obj : _) -> pure $ Just obj
+    where q = "UPDATE news_comments SET (text) = (?) WHERE id = ?;"
