@@ -13,7 +13,7 @@ import qualified Data.ByteString.Lazy.Internal as LBS
 
 data Route = PathRoute Text Route | DynamicRoute Text Route | MethodRoute Method
 
-type Handler = Request -> IO Response
+type Handler = Request -> Text -> IO Response
 
 rootRoute :: Route
 rootRoute = MethodRoute "GET"
@@ -50,7 +50,7 @@ responseError :: LBS.ByteString -> Response
 responseError = responseLBS status400 [(hContentType, "text/plain")]
 
 createUserHandler :: Handler
-createUserHandler req = do
+createUserHandler req _ = do
     body <- strictRequestBody req
     case eitherDecode body of
         Left  s -> return $ responseError $ encode s
@@ -63,10 +63,15 @@ createUserHandler req = do
 
 
 retrieveUserHandler :: Handler
-retrieveUserHandler _ = pure $ responseOk "Retrive User Route!"
+retrieveUserHandler _ pk = do
+    putStrLn $ unpack pk
+    res <- selectUser $ read (unpack pk)
+    case res of
+        Nothing   -> pure $ responseError "No user found!"
+        Just user -> pure $ responseOk $ encode (serializeUser user)
 
 updateUserHandler :: Handler
-updateUserHandler _ = pure $ responseOk "Update User Route!"
+updateUserHandler _ _ = pure $ responseOk "Update User Route!"
 
 routes :: [(Route, Handler)]
 routes =
@@ -74,6 +79,11 @@ routes =
     , (retrieveUserRoute, retrieveUserHandler)
     , (updateUserRoute  , updateUserHandler)
     ]
+
+getPk :: Route -> [Text] -> Text
+getPk (DynamicRoute _ _ ) (x:xs) = x
+getPk (PathRoute    _ rs) (_:xs) = getPk rs xs
+getPk _                _   = ""
 
 routeExists :: Route -> [Text] -> Method -> Bool
 routeExists (MethodRoute r) [] method | r == method = True
@@ -88,5 +98,8 @@ routeExists (DynamicRoute _ rs) (_ : xs) method = routeExists rs xs method
 route :: [(Route, Handler)] -> Request -> IO Response
 route [] req = pure $ responseError "Not Found!"
 route (x : xs) req
-    | routeExists (fst x) (pathInfo req) (requestMethod req) = snd x req
+    | routeExists (fst x) (pathInfo req) (requestMethod req) = snd
+        x
+        req
+        (getPk (fst x) (pathInfo req))
     | otherwise = route xs req
