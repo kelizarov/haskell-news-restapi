@@ -20,7 +20,7 @@ data User = User {
     userIsAdmin :: Bool
 } deriving Show
 
-userDefault = User { userId        = -1
+defaultUser = User { userId        = -1
                    , userFirstName = ""
                    , userLastName  = ""
                    , userPicture   = Nothing
@@ -47,7 +47,7 @@ data Author = Author {
     authorDescription :: Text
 } deriving Show
 
-authorDefault =
+defaultAuthor =
     Author { authorId = -1, authorUserId = -1, authorDescription = "" }
 
 instance FromRow Author where
@@ -62,7 +62,7 @@ data Category = Category {
     categoryName :: Text
 } deriving Show
 
-categoryDefault = Category { categoryId = -1, categoryName = "" }
+defaultCategory = Category { categoryId = -1, categoryName = "" }
 
 instance FromRow Category where
     fromRow = Category <$> field <*> field
@@ -75,7 +75,7 @@ data Tag = Tag {
     tagName :: Text
 } deriving Show
 
-tagDefault = Tag { tagId = -1, tagName = "" }
+defaultTag = Tag { tagId = -1, tagName = "" }
 
 instance FromRow Tag where
     fromRow = Tag <$> field <*> field

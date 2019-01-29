@@ -6,14 +6,20 @@ import           Network.Wai
 import           Database
 import           Models
 import           Serializers
-import           Data.Text
+import           Data.Maybe
+import           Control.Monad
+import           Control.Exception              ( catch
+                                                , SomeException
+                                                )
+import qualified          Data.Text as T
 import           Data.Aeson
+import           Text.Read
 import qualified Data.ByteString.Char8         as BS
-import qualified Data.ByteString.Lazy.Internal as LBS
+import qualified Data.ByteString.Lazy.Char8    as LBS
 
-data Route = PathRoute Text Route | DynamicRoute Text Route | MethodRoute Method
+data Route = PathRoute T.Text Route | DynamicRoute T.Text Route | MethodRoute Method
 
-type Handler = Request -> Text -> IO Response
+type Handler = Request -> IO Response
 
 rootRoute :: Route
 rootRoute = MethodRoute "GET"
@@ -46,32 +52,41 @@ updateAuthorRoute =
 responseOk :: LBS.ByteString -> Response
 responseOk = responseLBS status200 [(hContentType, "text/plain")]
 
-responseError :: LBS.ByteString -> Response
-responseError = responseLBS status400 [(hContentType, "text/plain")]
+responseNotFound :: Response
+responseNotFound =
+    responseLBS status404 [(hContentType, "text/plain")] "Resource not found"
 
 createUserHandler :: Handler
-createUserHandler req _ = do
+createUserHandler req = do
     body <- strictRequestBody req
-    case eitherDecode body of
-        Left  s -> return $ responseError $ encode s
-        Right d -> do
-            user <- insertUser userDefault
-                { userFirstName = createUserRawFirstName d
-                , userLastName  = createUserRawLastName d
-                }
-            return $ responseOk $ encode (serializeUser user)
-
+    either errorValidation successValidation (eitherDecode body)
+  where
+    errorValidation _ = pure responseNotFound
+    successValidation d = do
+        query <- insertUser defaultUser
+            { userFirstName = createUserRawFirstName d
+            , userLastName  = createUserRawLastName d
+            , userIsAdmin   = fromMaybe False (createUserRawIsAdmin d)
+            }
+        either errorResponse successResponse query
+      where
+        errorResponse :: SomeException -> IO Response
+        errorResponse _ = pure responseNotFound
+        successResponse d = pure $ responseOk $ encode (serializeUserSuccess d)
 
 retrieveUserHandler :: Handler
-retrieveUserHandler _ pk = do
-    putStrLn $ unpack pk
-    res <- selectUser $ read (unpack pk)
-    case res of
-        Nothing   -> pure $ responseError "No user found!"
-        Just user -> pure $ responseOk $ encode (serializeUser user)
+retrieveUserHandler _ = do
+    res <- selectUser 0
+    either errorResponse successResponse res
+  where
+    errorResponse :: SomeException -> IO Response
+    errorResponse _ = pure responseNotFound
+    successResponse Nothing = pure responseNotFound
+    successResponse (Just user) =
+        pure $ responseOk $ encode (serializeUserSuccess user)
 
 updateUserHandler :: Handler
-updateUserHandler _ _ = pure $ responseOk "Update User Route!"
+updateUserHandler _ = pure $ responseOk "Update User Route!"
 
 routes :: [(Route, Handler)]
 routes =
@@ -80,26 +95,26 @@ routes =
     , (updateUserRoute  , updateUserHandler)
     ]
 
-getPk :: Route -> [Text] -> Text
-getPk (DynamicRoute _ _ ) (x:xs) = x
-getPk (PathRoute    _ rs) (_:xs) = getPk rs xs
-getPk _                _   = ""
+getPk :: Request -> Route -> Maybe Int
+getPk req route = parsePathInfo route $ map T.unpack $ pathInfo req
+  where
+    parsePathInfo (MethodRoute _    ) _       = Nothing
+    parsePathInfo (PathRoute    h hs) (x : xs) = parsePathInfo hs xs
+    parsePathInfo (DynamicRoute _ _ ) (x : _ ) = readMaybe x
 
-routeExists :: Route -> [Text] -> Method -> Bool
-routeExists (MethodRoute r) [] method | r == method = True
-                                      | otherwise   = False
-routeExists (MethodRoute r) xs _ = False
-routeExists r               [] _ = False
-routeExists (PathRoute r rs) (x : xs) method
-    | r == x    = routeExists rs xs method
-    | otherwise = False
-routeExists (DynamicRoute _ rs) (_ : xs) method = routeExists rs xs method
+routeExists :: Request -> Route -> Bool
+routeExists req route = checkRoute route (pathInfo req) (requestMethod req)
+  where
+    checkRoute (MethodRoute r) [] method | r == method = True
+                                         | otherwise   = False
+    checkRoute (MethodRoute r) xs _ = False
+    checkRoute r               [] _ = False
+    checkRoute (PathRoute r rs) (x : xs) method
+        | r == x    = checkRoute rs xs method
+        | otherwise = False
+    checkRoute (DynamicRoute _ rs) (_ : xs) method = checkRoute rs xs method
 
 route :: [(Route, Handler)] -> Request -> IO Response
-route [] req = pure $ responseError "Not Found!"
-route (x : xs) req
-    | routeExists (fst x) (pathInfo req) (requestMethod req) = snd
-        x
-        req
-        (getPk (fst x) (pathInfo req))
-    | otherwise = route xs req
+route [] req = pure responseNotFound
+route (x : xs) req | routeExists req (fst x) = snd x req
+                   | otherwise               = route xs req

@@ -9,46 +9,58 @@ import           Models
 import           GHC.Generics
 import           Data.Time                     as Time
 
-data SerializedUser = SerializedUser {
-    serializedUserId :: Int,
-    serializedUserFirstName :: Text,
-    serializedUserLastName :: Text,
-    -- serializedUserPicture :: SerializedPicture,
-    serializedUserCreatedOn :: Time.UTCTime,
-    serializedUserIsAdmin :: Bool
-    -- serializedUserComments :: [SerializedComment]
-} deriving Show
+data UserResponse =
+    UserSuccessResponse {
+        successUserId :: Int,
+        successUserFirstName :: Text,
+        successUserLastName :: Text,
+        -- successUserPicture :: Text,
+        successUserCreatedOn :: Time.UTCTime,
+        successUserIsAdmin :: Bool
+        -- serializedUserComments :: [SerializedComment]
+    } deriving Show
 
-instance ToJSON SerializedUser where
-    toJSON SerializedUser {..} = object
-        [ "id" .= serializedUserId
-        , "first_name" .= serializedUserFirstName
-        , "last_name" .= serializedUserLastName
-        , "created_on" .= serializedUserCreatedOn
-        , "is_admin" .= serializedUserIsAdmin
+instance ToJSON UserResponse where
+    toJSON UserSuccessResponse {..} = object
+        [ "id" .= successUserId
+        , "first_name" .= successUserFirstName
+        , "last_name" .= successUserLastName
+        , "created_on" .= successUserCreatedOn
+        , "is_admin" .= successUserIsAdmin
         ]
 
-serializeUser :: User -> SerializedUser
-serializeUser User {..} = SerializedUser
-    { serializedUserId        = userId
-    , serializedUserFirstName = userFirstName
-    , serializedUserLastName  = userLastName
-    , serializedUserCreatedOn = userCreatedOn
-    , serializedUserIsAdmin   = userIsAdmin
+-- serializeError :: Text -> UserResponse
+-- serializeError err = ErrorResponse err 0
+
+serializeUserSuccess :: User -> UserResponse
+serializeUserSuccess User {..} = UserSuccessResponse
+    { successUserId        = userId
+    , successUserFirstName = userFirstName
+    , successUserLastName  = userLastName
+                                    --   , successUserPicture   = userPicture
+    , successUserCreatedOn = userCreatedOn
+    , successUserIsAdmin   = userIsAdmin
     }
 
 data CreateUserRaw = CreateUserRaw {
     createUserRawFirstName :: Text,
-    createUserRawLastName :: Text
+    createUserRawLastName :: Text,
+    createUserRawIsAdmin :: Maybe Bool
 } deriving (Show, Eq, Generic)
 
 instance FromJSON CreateUserRaw where
     parseJSON (Object v) =
-        CreateUserRaw <$> v .: "first_name" <*> v .: "last_name"
+        CreateUserRaw
+            <$> v
+            .:  "first_name"
+            <*> v
+            .:  "last_name"
+            <*> v
+            .:! "is_admin"
 
 data SerializedAuthor = SerializedAuthor {
     serializedAuthorId :: Int,
-    serializedAuthorUser :: SerializedUser,
+    serializedAuthorUser :: UserResponse,
     serializedAuthorDescription :: Text,
     serializedAuthorNews :: [SerializedNews]
 } deriving Show
@@ -84,6 +96,6 @@ data SerializedPicture = SerializedPicture {
 
 data SerializedComment = SerializedComment {
     serializedCommentId :: Int,
-    serializedCommentUser :: SerializedUser,
+    serializedCommentUser :: Int,
     serializedCommentText :: Text
 } deriving Show

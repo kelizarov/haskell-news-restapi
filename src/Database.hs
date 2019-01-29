@@ -1,10 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Database where
 
 import           Database.PostgreSQL.Simple
 import           Database.PostgreSQL.Simple.Migration
+import           Data.Text
 import           Control.Exception
 import           Models
 
@@ -12,7 +14,7 @@ import           Models
 connectInfo :: ConnectInfo
 connectInfo = ConnectInfo { connectHost     = ""
                           , connectPort     = 5432
-                          , connectUser     = "admin"
+                          , connectUser     = "admina"
                           , connectPassword = ""
                           , connectDatabase = "news_restapi"
                           }
@@ -25,24 +27,25 @@ migrate = bracket (connect connectInfo) close $ \conn -> do
         _                  -> return ()
     where cmds = [MigrationInitialization, MigrationDirectory "./migrations"]
 
-insertUser :: User -> IO User
-insertUser User {..} = bracket (connect connectInfo) close $ \conn -> do
-    (obj : _) <- query conn q (userFirstName, userLastName)
+insertUser :: Exception e => User -> IO (Either e User)
+insertUser User {..} = try $ bracket (connect connectInfo) close $ \conn -> do
+    (obj : _) <- query conn q (userFirstName, userLastName, userIsAdmin)
     pure obj
   where
     q
-        = "INSERT INTO users(first_name, last_name, created_on) \
-            \VALUES (?, ?, CURRENT_TIMESTAMP) RETURNING *;"
+        = "INSERT INTO users(first_name, last_name, is_admin, created_on) \
+                \VALUES (?, ?, ?, CURRENT_TIMESTAMP) RETURNING *;"
 
-insertAuthor :: Author -> IO Author
-insertAuthor Author {..} = bracket (connect connectInfo) close $ \conn -> do
-    (obj : _) <- query conn q (authorUserId, authorDescription)
-    pure obj
+insertAuthor :: Exception e => Author -> IO (Either e Author)
+insertAuthor Author {..} =
+    try $ bracket (connect connectInfo) close $ \conn -> do
+        (obj : _) <- query conn q (authorUserId, authorDescription)
+        pure obj
   where
     q = "INSERT INTO authors(user_id, description) VALUES (?, ?) RETURNING *;"
 
-insertNews :: News -> IO News
-insertNews News {..} = bracket (connect connectInfo) close $ \conn -> do
+insertNews :: Exception e => News -> IO (Either e News)
+insertNews News {..} = try $ bracket (connect connectInfo) close $ \conn -> do
     (obj : _) <- query
         conn
         q
@@ -60,92 +63,94 @@ insertNews News {..} = bracket (connect connectInfo) close $ \conn -> do
         \ VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)\
         \ RETURNING *;"
 
-insertCategory :: Category -> IO Category
-insertCategory Category {..} = bracket (connect connectInfo) close $ \conn ->
-    do
+insertCategory :: Exception e => Category -> IO (Either e Category)
+insertCategory Category {..} =
+    try $ bracket (connect connectInfo) close $ \conn -> do
         (category : _) <- query conn q [categoryName]
         pure category
     where q = "INSERT INTO news_categories(name) VALUES (?) RETURNING *;"
 
-insertTag :: Tag -> IO Tag
-insertTag Tag {..} = bracket (connect connectInfo) close $ \conn -> do
+insertTag :: Exception e => Tag -> IO (Either e Tag)
+insertTag Tag {..} = try $ bracket (connect connectInfo) close $ \conn -> do
     (obj : _) <- query conn q [tagName]
     pure obj
     where q = "INSERT INTO tags(name) VALUES (?) RETURNING *;"
 
-insertPicture :: Picture -> IO Picture
-insertPicture Picture {..} = bracket (connect connectInfo) close $ \conn -> do
-    (obj : _) <- query conn q [pictureFilePath]
-    pure obj
+insertPicture :: Exception e => Picture -> IO (Either e Picture)
+insertPicture Picture {..} =
+    try $ bracket (connect connectInfo) close $ \conn -> do
+        (obj : _) <- query conn q [pictureFilePath]
+        pure obj
     where q = "INSERT INTO pictures(file_path) VALUES (?) RETURNING *;"
 
-insertComment :: Comment -> IO Comment
-insertComment Comment {..} = bracket (connect connectInfo) close $ \conn -> do
-    (obj : _) <- query conn q (commentNewsId, commentUserId, commentText)
-    pure obj
+insertComment :: Exception e => Comment -> IO (Either e Comment)
+insertComment Comment {..} =
+    try $ bracket (connect connectInfo) close $ \conn -> do
+        (obj : _) <- query conn q (commentNewsId, commentUserId, commentText)
+        pure obj
   where
     q
         = "INSERT INTO news_comments(news_id, user_id, text, created_on) \
         \VALUES (?, ?, ?, CURRENT_TIMESTAMP) RETURNING *;"
 
-selectUser :: Int -> IO (Maybe User)
-selectUser id = bracket (connect connectInfo) close $ \conn -> do
+selectUser :: Exception e => Int -> IO (Either e (Maybe User))
+selectUser id = try $ bracket (connect connectInfo) close $ \conn -> do
     res <- query conn q [id]
     case res of
         []        -> pure Nothing
         (obj : _) -> pure $ Just obj
     where q = "SELECT * FROM users WHERE id = ?;"
 
-selectAuthor :: Int -> IO (Maybe Author)
-selectAuthor id = bracket (connect connectInfo) close $ \conn -> do
+selectAuthor :: Exception e => Int -> IO (Either e (Maybe Author))
+selectAuthor id = try $ bracket (connect connectInfo) close $ \conn -> do
     res <- query conn q [id]
     case res of
         []        -> pure Nothing
         (obj : _) -> pure $ Just obj
     where q = "SELECT * FROM authors WHERE id = ?;"
 
-selectNews :: Int -> IO (Maybe News)
-selectNews id = bracket (connect connectInfo) close $ \conn -> do
+selectNews :: Exception e => Int -> IO (Either e (Maybe News))
+selectNews id = try $ bracket (connect connectInfo) close $ \conn -> do
     res <- query conn q [id]
     case res of
         []        -> pure Nothing
         (obj : _) -> pure $ Just obj
     where q = "SELECT * FROM news_objects WHERE id = ?;"
 
-selectCategory :: Int -> IO (Maybe Category)
-selectCategory id = bracket (connect connectInfo) close $ \conn -> do
+selectCategory :: Exception e => Int -> IO (Either e (Maybe Category))
+selectCategory id = try $ bracket (connect connectInfo) close $ \conn -> do
     res <- query conn q [id]
     case res of
         []        -> pure Nothing
         (obj : _) -> pure $ Just obj
     where q = "SELECT * FROM news_categories WHERE id = ?;"
 
-selectTag :: Int -> IO (Maybe Tag)
-selectTag id = bracket (connect connectInfo) close $ \conn -> do
+selectTag :: Exception e => Int -> IO (Either e (Maybe Tag))
+selectTag id = try $ bracket (connect connectInfo) close $ \conn -> do
     res <- query conn q [id]
     case res of
         []        -> pure Nothing
         (obj : _) -> pure $ Just obj
     where q = "SELECT * FROM tags WHERE id = ?;"
 
-selectPicture :: Int -> IO (Maybe Picture)
-selectPicture id = bracket (connect connectInfo) close $ \conn -> do
+selectPicture :: Exception e => Int -> IO (Either e (Maybe Picture))
+selectPicture id = try $ bracket (connect connectInfo) close $ \conn -> do
     res <- query conn q [id]
     case res of
         []        -> pure Nothing
         (obj : _) -> pure $ Just obj
     where q = "SELECT * FROM pictures WHERE id = ?;"
 
-selectComment :: Int -> IO (Maybe Comment)
-selectComment id = bracket (connect connectInfo) close $ \conn -> do
+selectComment :: Exception e => Int -> IO (Either e (Maybe Comment))
+selectComment id = try $ bracket (connect connectInfo) close $ \conn -> do
     res <- query conn q [id]
     case res of
         []        -> pure Nothing
         (obj : _) -> pure $ Just obj
     where q = "SELECT * FROM news_comments WHERE id = ?;"
 
-updateUser :: User -> IO (Maybe User)
-updateUser User {..} = bracket (connect connectInfo) close $ \conn -> do
+updateUser :: Exception e => User -> IO (Either e (Maybe User))
+updateUser User {..} = try $ bracket (connect connectInfo) close $ \conn -> do
     res <- query
         conn
         q
@@ -158,16 +163,16 @@ updateUser User {..} = bracket (connect connectInfo) close $ \conn -> do
         = "UPDATE users SET (first_name, last_name, user_picture, is_admin) = \
         \(?, ?, ?, ?) WHERE id = ? RETURNING *; "
 
-updateAuthor :: Author -> IO (Maybe Author)
-updateAuthor Author {..} = bracket (connect connectInfo) close $ \conn -> do
+updateAuthor :: Exception e => Author -> IO (Either e (Maybe Author))
+updateAuthor Author {..} = try $ bracket (connect connectInfo) close $ \conn -> do
     res <- query conn q (authorDescription, authorId)
     case res of
         []        -> pure Nothing
         (obj : _) -> pure $ Just obj
     where q = "UPDATE authors SET (description) = (?) WHERE id = ?;"
 
-updateNews :: News -> IO (Maybe News)
-updateNews News {..} = bracket (connect connectInfo) close $ \conn -> do
+updateNews :: Exception e => News -> IO (Either e (Maybe News))
+updateNews News {..} = try $ bracket (connect connectInfo) close $ \conn -> do
     res <- query
         conn
         q
@@ -180,10 +185,10 @@ updateNews News {..} = bracket (connect connectInfo) close $ \conn -> do
         = "UPDATE news_objects SET (title, category, content, picture, is_draft)\
         \ = (?, ?, ?, ?, ?) WHERE id = ?;"
 
-updateComment :: Comment -> IO (Maybe Comment)
-updateComment Comment {..} = bracket (connect connectInfo) close $ \conn -> do
+updateComment :: Exception e => Comment -> IO (Either e (Maybe Comment))
+updateComment Comment {..} = try $ bracket (connect connectInfo) close $ \conn -> do
     res <- query conn q (commentText, commentText)
     case res of
-        [] -> pure Nothing
+        []        -> pure Nothing
         (obj : _) -> pure $ Just obj
     where q = "UPDATE news_comments SET (text) = (?) WHERE id = ?;"
