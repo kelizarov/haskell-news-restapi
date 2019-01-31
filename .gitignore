@@ -1,3 +1,6 @@
 .stack-work/
 restapi.cabal
 *~
+
+# Ignore local settings in ./conf folder
+./conf/local.conf
