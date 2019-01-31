@@ -3,23 +3,21 @@ module Routing where
 
 import           Network.HTTP.Types
 import           Network.Wai
-import           Database
 import           Models
-import           Serializers
+import           Middlewares
+import           Handlers
+import           MonadHandler
+import           Database
 import           Data.Maybe
 import           Control.Monad
-import           Control.Exception              ( catch
-                                                , SomeException
-                                                )
-import qualified          Data.Text as T
+import qualified          Control.Exception as EX
 import           Data.Aeson
 import           Text.Read
-import qualified Data.ByteString.Char8         as BS
-import qualified Data.ByteString.Lazy.Char8    as LBS
+import qualified Data.Text                     as T
+import qualified Config                        as C
+import qualified Database.PostgreSQL.Simple    as PSQL
 
 data Route = PathRoute T.Text Route | DynamicRoute T.Text Route | MethodRoute Method
-
-type Handler = Request -> IO Response
 
 rootRoute :: Route
 rootRoute = MethodRoute "GET"
@@ -49,44 +47,28 @@ updateAuthorRoute =
     PathRoute "api" $ PathRoute "authors" $ DynamicRoute "pk" $ MethodRoute
         "PATCH"
 
-responseOk :: LBS.ByteString -> Response
-responseOk = responseLBS status200 [(hContentType, "text/plain")]
-
-responseNotFound :: Response
-responseNotFound =
-    responseLBS status404 [(hContentType, "text/plain")] "Resource not found"
-
-createUserHandler :: Handler
-createUserHandler req = do
-    body <- strictRequestBody req
-    either errorValidation successValidation (eitherDecode body)
+getPk :: Request -> Route -> Maybe Int
+getPk req route = parsePathInfo route $ map T.unpack $ pathInfo req
   where
-    errorValidation _ = pure responseNotFound
-    successValidation d = do
-        query <- insertUser defaultUser
-            { userFirstName = createUserRawFirstName d
-            , userLastName  = createUserRawLastName d
-            , userIsAdmin   = fromMaybe False (createUserRawIsAdmin d)
-            }
-        either errorResponse successResponse query
-      where
-        errorResponse :: SomeException -> IO Response
-        errorResponse _ = pure responseNotFound
-        successResponse d = pure $ responseOk $ encode (serializeUserSuccess d)
+    parsePathInfo (MethodRoute _    ) _        = Nothing
+    parsePathInfo (PathRoute    h hs) (x : xs) = parsePathInfo hs xs
+    parsePathInfo (DynamicRoute _ _ ) (x : _ ) = readMaybe x
 
-retrieveUserHandler :: Handler
-retrieveUserHandler _ = do
-    res <- selectUser 0
-    either errorResponse successResponse res
+traverseRoute :: Request -> Route -> (Bool, [(T.Text, T.Text)])
+traverseRoute req route = checkRoute route
+                                     (pathInfo req)
+                                     (requestMethod req)
+                                     []
   where
-    errorResponse :: SomeException -> IO Response
-    errorResponse _ = pure responseNotFound
-    successResponse Nothing = pure responseNotFound
-    successResponse (Just user) =
-        pure $ responseOk $ encode (serializeUserSuccess user)
-
-updateUserHandler :: Handler
-updateUserHandler _ = pure $ responseOk "Update User Route!"
+    checkRoute (MethodRoute r) [] method pks | r == method = (True, pks)
+                                             | otherwise   = (False, pks)
+    checkRoute (MethodRoute r) xs _ pks = (False, pks)
+    checkRoute r               [] _ pks = (False, pks)
+    checkRoute (PathRoute r rs) (x : xs) method pks
+        | r == x    = checkRoute rs xs method pks
+        | otherwise = (False, pks)
+    checkRoute (DynamicRoute r rs) (x : xs) method pks =
+        checkRoute rs xs method ((r, x) : pks)
 
 routes :: [(Route, Handler)]
 routes =
@@ -95,26 +77,16 @@ routes =
     , (updateUserRoute  , updateUserHandler)
     ]
 
-getPk :: Request -> Route -> Maybe Int
-getPk req route = parsePathInfo route $ map T.unpack $ pathInfo req
-  where
-    parsePathInfo (MethodRoute _    ) _       = Nothing
-    parsePathInfo (PathRoute    h hs) (x : xs) = parsePathInfo hs xs
-    parsePathInfo (DynamicRoute _ _ ) (x : _ ) = readMaybe x
+route :: C.Config -> [(Route, Handler)] -> Request -> IO Response
+route _ [] _ = responseNotFound
+route conf (x : xs) req =
+    let r = traverseRoute req (fst x)
+    in  case r of
+            (True, pk) -> 
+                EX.bracket openConnection PSQL.close
+                    $ \conn -> runHandler conf pk req conn handler
+            (False, _) -> route conf xs req
+    where
+        handler = snd x
+        openConnection = connectInfo conf >>= PSQL.connect
 
-routeExists :: Request -> Route -> Bool
-routeExists req route = checkRoute route (pathInfo req) (requestMethod req)
-  where
-    checkRoute (MethodRoute r) [] method | r == method = True
-                                         | otherwise   = False
-    checkRoute (MethodRoute r) xs _ = False
-    checkRoute r               [] _ = False
-    checkRoute (PathRoute r rs) (x : xs) method
-        | r == x    = checkRoute rs xs method
-        | otherwise = False
-    checkRoute (DynamicRoute _ rs) (_ : xs) method = checkRoute rs xs method
-
-route :: [(Route, Handler)] -> Request -> IO Response
-route [] req = pure responseNotFound
-route (x : xs) req | routeExists req (fst x) = snd x req
-                   | otherwise               = route xs req

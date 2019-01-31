@@ -6,6 +6,7 @@ import           Network.HTTP.Types
 import           Network.Wai.Handler.Warp       ( run )
 import qualified Data.ByteString.Char8         as BS
 import Routing (route, routes)
+import qualified Config as C
 
 withLogging :: Middleware
 withLogging app req respond = app req $ \response -> do
@@ -25,10 +26,11 @@ withLogging app req respond = app req $ \response -> do
     query    = BS.unpack $ BS.concat [rawPathInfo req, rawQueryString req]
     statusOf = show . statusCode . responseStatus
 
-application :: Application
-application req respond = route routes req >>= respond
+application :: C.Config -> Application
+application conf req respond = route conf routes req >>= respond
 
 main :: IO ()
 main = do
     putStrLn "Serving at http://localhost:8000"
-    run 8000 $ withLogging application
+    conf <- C.loadConfig
+    run 8000 $ withLogging (application conf)
