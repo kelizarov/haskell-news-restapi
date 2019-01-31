@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Handlers
+module API.Handlers
     ( Handler
     , createUserHandler
     , retrieveUserHandler
@@ -10,26 +10,25 @@ module Handlers
 where
 
 import           Network.Wai
-import qualified          Network.HTTP.Types as HTTP
-import           Models
-import           Serializers
-import           Database
-import MonadHandler
+import qualified Network.HTTP.Types            as HTTP
 import           Data.Aeson
 import           Data.Text
 import           Data.Maybe
 import           Text.Read
-import           Control.Exception              ( catch
-                                                , SomeException
-                                                )
 import           Control.Monad.Reader
 import           Control.Monad.IO.Class
+import qualified Control.Exception             as EX
 import qualified Data.ByteString.Char8         as BS
 import qualified Data.ByteString.Lazy.Char8    as LBS
-import qualified Config                        as C
+
+import           Monad.Handler
+import           Models.User
+import qualified Core.Database                 as DB
+import qualified Core.Config                   as C
 
 responseOk :: Applicative m => LBS.ByteString -> m Response
-responseOk b = pure $ responseLBS HTTP.status200 [(HTTP.hContentType, "text/plain")] b
+responseOk b =
+    pure $ responseLBS HTTP.status200 [(HTTP.hContentType, "text/plain")] b
 
 responseNotFound :: Applicative m => m Response
 responseNotFound = pure $ responseLBS HTTP.status404
@@ -38,24 +37,24 @@ responseNotFound = pure $ responseLBS HTTP.status404
 
 createUserHandler :: Handler
 createUserHandler = do
-    req <- asks hRequest
+    req  <- asks hRequest
     body <- liftIO $ strictRequestBody req
     either errorValidation successValidation (eitherDecode body)
   where
     errorValidation _ = responseNotFound
     successValidation d = do
         conn  <- asks hConnection
-        query <- liftIO $ insertUser
+        query <- liftIO $ DB.insertUser
             conn
-            defaultUser { userFirstName = createUserRawFirstName d
-                        , userLastName = createUserRawLastName d
-                        , userIsAdmin = fromMaybe False (createUserRawIsAdmin d)
+            defaultUser { userFirstName = userRawFirstName d
+                        , userLastName  = userRawLastName d
+                        , userIsAdmin   = fromMaybe False (userRawIsAdmin d)
                         }
         either errorResponse successResponse query
       where
-        errorResponse :: SomeException -> MonadHandler Response
+        errorResponse :: EX.SomeException -> MonadHandler Response
         errorResponse _ = responseNotFound
-        successResponse d = responseOk $ encode (serializeUserSuccess d)
+        successResponse d = responseOk $ encode d
 
 retrieveUserHandler :: Handler
 retrieveUserHandler = do
@@ -64,14 +63,13 @@ retrieveUserHandler = do
         Nothing -> responseNotFound
         Just pk -> do
             conn <- asks hConnection
-            res  <- liftIO $ selectUser conn pk
+            res  <- liftIO $ DB.selectUser conn pk
             either errorResponse successResponse res
   where
-    errorResponse :: SomeException -> MonadHandler Response
+    errorResponse :: EX.SomeException -> MonadHandler Response
     errorResponse _ = responseNotFound
-    successResponse Nothing = responseNotFound
-    successResponse (Just user) =
-        responseOk $ encode (serializeUserSuccess user)
+    successResponse Nothing     = responseNotFound
+    successResponse (Just user) = responseOk $ encode user
 
 updateUserHandler :: Handler
 updateUserHandler = responseOk "Update User Route!"

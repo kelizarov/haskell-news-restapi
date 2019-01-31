@@ -1,19 +1,17 @@
-{-# LANGUAGE OverloadedStrings #-}
-module Middlewares where
+module API.Middleware where
 
 import           Network.Wai
-import           Handlers
-import           Models
-import           Database
 import           Data.Maybe
 import           Text.Read
-import           MonadHandler
 import           Control.Monad.Reader
 import qualified Control.Exception             as EX
 import qualified Data.Text                     as T
-import qualified Config                        as C
 import qualified Data.ByteString.Char8         as BS
 
+import           API.Handlers
+import           Monad.Handler
+import Models.User
+import qualified Core.Config                   as C
 
 data Permission = IsAdmin | OwnerOf
 

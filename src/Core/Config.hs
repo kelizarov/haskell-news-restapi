@@ -1,4 +1,4 @@
-module Config
+module Core.Config
     ( loadConfig
     , get
     , C.Config

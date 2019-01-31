@@ -1,19 +1,20 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module MonadHandler where
+module Monad.Handler where
 
 import           Control.Monad.Reader
 import           Control.Monad.IO.Class
 import           Network.Wai
-import           Models
-import           Database
 import           Text.Read
 import qualified Database.PostgreSQL.Simple as PSQL
 import qualified Control.Exception             as EX
 import qualified Data.Text                     as T
-import qualified Config                        as C
 import qualified Data.ByteString.Char8         as BS
+
+import           Models.User
+import qualified Core.Database as DB
+import qualified Core.Config                        as C
 
 type Handler = MonadHandler Response
 
@@ -46,7 +47,7 @@ getUser req conn =
         of
             Nothing  -> pure Nothing
             Just uId -> do
-                res <- selectUser conn uId
+                res <- DB.selectUser conn uId
                 either error success res
               where
                 error :: EX.SomeException -> IO (Maybe User)

@@ -19,17 +19,17 @@ CREATE TABLE authors (
     description text
 );
 
-CREATE TABLE news_categories (
+CREATE TABLE categories (
     id serial PRIMARY KEY,
     name varchar (255) NOT NULL
 );
 
-CREATE TABLE news_objects (
+CREATE TABLE posts (
     id serial PRIMARY KEY,
     title varchar (255) NOT NULL,
     created_on timestamp with time zone NOT NULL,
     author integer REFERENCES authors,
-    category integer REFERENCES news_categories,
+    category integer REFERENCES categories,
     content text,
     picture integer REFERENCES pictures,
     is_draft boolean DEFAULT true
@@ -41,22 +41,27 @@ CREATE TABLE tags (
     name varchar (255) NOT NULL
 );
 
-CREATE TABLE news_tags (
+CREATE TABLE post_tags (
     tag_id integer REFERENCES tags,
-    news_id integer REFERENCES news_objects,
+    post_id integer REFERENCES posts,
     PRIMARY KEY (tag_id, news_id)
 );
 
-CREATE TABLE news_comments (
+CREATE TABLE comments (
     id serial PRIMARY KEY,
     created_on timestamp with time zone NOT NULL,
-    news_id integer REFERENCES news_objects,
     user_id integer REFERENCES users,
     text text
 );
 
-CREATE TABLE news_pictures (
+CREATE TABLE post_comments (
+    comment_id integer REFERENCES comments,
+    post_id integer REFERENCES posts
+    PRIMARY KEY (comment_id, post_id)
+);
+
+CREATE TABLE post_pictures (
     picture_id integer REFERENCES pictures,
-    news_id integer REFERENCES news_objects,
+    post_id integer REFERENCES posts,
     PRIMARY KEY (picture_id, news_id)
 );

@@ -1,21 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Routing where
+module API.Router where
 
 import           Network.HTTP.Types
 import           Network.Wai
-import           Models
-import           Middlewares
-import           Handlers
-import           MonadHandler
-import           Database
 import           Data.Maybe
 import           Control.Monad
-import qualified          Control.Exception as EX
 import           Data.Aeson
 import           Text.Read
+import qualified Control.Exception             as EX
 import qualified Data.Text                     as T
-import qualified Config                        as C
 import qualified Database.PostgreSQL.Simple    as PSQL
+
+import qualified Core.Database                 as DB
+import qualified Core.Config                   as C
+import           API.Middleware
+import           API.Handlers
+import           Monad.Handler
 
 data Route = PathRoute T.Text Route | DynamicRoute T.Text Route | MethodRoute Method
 
@@ -82,11 +82,10 @@ route _ [] _ = responseNotFound
 route conf (x : xs) req =
     let r = traverseRoute req (fst x)
     in  case r of
-            (True, pk) -> 
-                EX.bracket openConnection PSQL.close
-                    $ \conn -> runHandler conf pk req conn handler
+            (True, pk) -> EX.bracket openConnection PSQL.close
+                $ \conn -> runHandler conf pk req conn handler
             (False, _) -> route conf xs req
-    where
+    where 
         handler = snd x
-        openConnection = connectInfo conf >>= PSQL.connect
+        openConnection = DB.connect conf
 

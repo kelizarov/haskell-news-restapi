@@ -5,8 +5,8 @@ import           Network.Wai
 import           Network.HTTP.Types
 import           Network.Wai.Handler.Warp       ( run )
 import qualified Data.ByteString.Char8         as BS
-import Routing (route, routes)
-import qualified Config as C
+import API.Router (route, routes)
+import qualified Core.Config as C
 
 withLogging :: Middleware
 withLogging app req respond = app req $ \response -> do
