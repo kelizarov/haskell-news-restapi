@@ -21,8 +21,8 @@ import qualified Control.Exception             as EX
 import qualified Data.ByteString.Char8         as BS
 import qualified Data.ByteString.Lazy.Char8    as LBS
 
-import           Monad.Handler
 import           Models.User
+import           Core.Monad.Handler
 import qualified Core.Database                 as DB
 import qualified Core.Config                   as C
 

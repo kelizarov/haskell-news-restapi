@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Monad.Handler where
+module Core.Monad.Handler where
 
 import           Control.Monad.Reader
 import           Control.Monad.IO.Class

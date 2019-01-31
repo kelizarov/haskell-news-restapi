@@ -13,9 +13,9 @@ import qualified Database.PostgreSQL.Simple    as PSQL
 
 import qualified Core.Database                 as DB
 import qualified Core.Config                   as C
+import           Core.Monad.Handler
 import           API.Middleware
 import           API.Handlers
-import           Monad.Handler
 
 data Route = PathRoute T.Text Route | DynamicRoute T.Text Route | MethodRoute Method
 
