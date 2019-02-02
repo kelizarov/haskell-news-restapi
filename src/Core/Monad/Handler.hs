@@ -7,14 +7,14 @@ import           Control.Monad.Reader
 import           Control.Monad.IO.Class
 import           Network.Wai
 import           Text.Read
-import qualified Database.PostgreSQL.Simple as PSQL
+import qualified Database.PostgreSQL.Simple    as PSQL
 import qualified Control.Exception             as EX
 import qualified Data.Text                     as T
 import qualified Data.ByteString.Char8         as BS
 
 import           Models.User
-import qualified Core.Database as DB
-import qualified Core.Config                        as C
+import qualified Core.Database                 as DB
+import qualified Core.Config                   as C
 
 type Handler = MonadHandler Response
 
@@ -25,12 +25,24 @@ data HandlerEnv = HandlerEnv {
     hConnection :: PSQL.Connection
 }
 
-newtype MonadHandler a = MonadHandler {runMonadHandler :: ReaderT HandlerEnv IO a} deriving (Functor, Applicative, Monad, MonadIO, MonadReader HandlerEnv)
+newtype MonadHandler a = MonadHandler {
+    runMonadHandler :: ReaderT HandlerEnv IO a
+} deriving (Functor, Applicative, Monad, MonadIO, MonadReader HandlerEnv)
 
 runHandler
-    :: C.Config -> [(T.Text, T.Text)] -> Request -> PSQL.Connection -> MonadHandler a -> IO a
+    :: C.Config
+    -> [(T.Text, T.Text)]
+    -> Request
+    -> PSQL.Connection
+    -> MonadHandler a
+    -> IO a
 runHandler conf pks req conn = (`runReaderT` env) . runMonadHandler
-    where env = HandlerEnv { hConfig = conf, hPks = pks, hRequest = req, hConnection = conn }
+  where
+    env = HandlerEnv { hConfig     = conf
+                     , hPks        = pks
+                     , hRequest    = req
+                     , hConnection = conn
+                     }
 
 getRequestUser :: MonadHandler (Maybe User)
 getRequestUser = do

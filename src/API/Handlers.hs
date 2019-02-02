@@ -5,7 +5,7 @@ module API.Handlers
     , retrieveUserHandler
     , updateUserHandler
     , responseOk
-    , responseNotFound
+    , responseError
     )
 where
 
@@ -30,10 +30,10 @@ responseOk :: Applicative m => LBS.ByteString -> m Response
 responseOk b =
     pure $ responseLBS HTTP.status200 [(HTTP.hContentType, "text/plain")] b
 
-responseNotFound :: Applicative m => m Response
-responseNotFound = pure $ responseLBS HTTP.status404
+responseError :: Applicative m => LBS.ByteString -> m Response
+responseError b = pure $ responseLBS HTTP.status400
                                       [(HTTP.hContentType, "text/plain")]
-                                      "Resource not found"
+                                      b
 
 createUserHandler :: Handler
 createUserHandler = do
@@ -41,7 +41,7 @@ createUserHandler = do
     body <- liftIO $ strictRequestBody req
     either errorValidation successValidation (eitherDecode body)
   where
-    errorValidation _ = responseNotFound
+    errorValidation _ = responseError "Error parsing JSON"
     successValidation d = do
         conn  <- asks hConnection
         query <- liftIO $ DB.insertUser
@@ -53,23 +53,26 @@ createUserHandler = do
         either errorResponse successResponse query
       where
         errorResponse :: EX.SomeException -> MonadHandler Response
-        errorResponse _ = responseNotFound
+        errorResponse err = responseError $ (LBS.pack . show) err
         successResponse d = responseOk $ encode d
 
 retrieveUserHandler :: Handler
 retrieveUserHandler = do
     pks <- asks hPks
     case lookup "pk" pks >>= (readMaybe . unpack) of
-        Nothing -> responseNotFound
+        Nothing -> responseError "Wrong pk"
         Just pk -> do
             conn <- asks hConnection
             res  <- liftIO $ DB.selectUser conn pk
             either errorResponse successResponse res
   where
     errorResponse :: EX.SomeException -> MonadHandler Response
-    errorResponse _ = responseNotFound
-    successResponse Nothing     = responseNotFound
+    errorResponse err = responseError $ (LBS.pack . show) err
+    successResponse Nothing     = responseError "Object not found"
     successResponse (Just user) = responseOk $ encode user
+
+listUserHandler :: Handler
+listUserHandler = undefined
 
 updateUserHandler :: Handler
 updateUserHandler = responseOk "Update User Route!"

@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module API.Middleware where
 
 import           Network.Wai
@@ -9,7 +11,7 @@ import qualified Data.Text                     as T
 import qualified Data.ByteString.Char8         as BS
 
 import           API.Handlers
-import Models.User
+import           Models.User
 import           Core.Monad.Handler
 import qualified Core.Config                   as C
 
@@ -20,9 +22,9 @@ processHandler handler [] = handler
 processHandler handler ps = do
     user <- getRequestUser
     case user of
-        Nothing -> responseNotFound
+        Nothing -> responseError "Permission denied"
         Just u | True      -> handler
-               | otherwise -> responseNotFound
+               | otherwise -> responseError "Permission denied"
 
 isAllowed :: User -> Permission -> Bool
 isAllowed user IsAdmin = undefined

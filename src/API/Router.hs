@@ -47,13 +47,6 @@ updateAuthorRoute =
     PathRoute "api" $ PathRoute "authors" $ DynamicRoute "pk" $ MethodRoute
         "PATCH"
 
-getPk :: Request -> Route -> Maybe Int
-getPk req route = parsePathInfo route $ map T.unpack $ pathInfo req
-  where
-    parsePathInfo (MethodRoute _    ) _        = Nothing
-    parsePathInfo (PathRoute    h hs) (x : xs) = parsePathInfo hs xs
-    parsePathInfo (DynamicRoute _ _ ) (x : _ ) = readMaybe x
-
 traverseRoute :: Request -> Route -> (Bool, [(T.Text, T.Text)])
 traverseRoute req route = checkRoute route
                                      (pathInfo req)
@@ -78,14 +71,13 @@ routes =
     ]
 
 route :: C.Config -> [(Route, Handler)] -> Request -> IO Response
-route _ [] _ = responseNotFound
-route conf (x : xs) req =
-    let r = traverseRoute req (fst x)
-    in  case r of
-            (True, pk) -> EX.bracket openConnection PSQL.close
-                $ \conn -> runHandler conf pk req conn handler
-            (False, _) -> route conf xs req
-    where 
-        handler = snd x
-        openConnection = DB.connect conf
+route _    []       _   = responseError "Resource not found"
+route conf (x : xs) req = case r of
+    (True, pk) -> EX.bracket openConnection PSQL.close
+        $ \conn -> runHandler conf pk req conn handler
+    (False, _) -> route conf xs req
+  where
+    r              = traverseRoute req (fst x)
+    openConnection = DB.connect conf
+    handler        = snd x
 
