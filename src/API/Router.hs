@@ -29,6 +29,9 @@ retrieveUserRoute :: Route
 retrieveUserRoute =
     PathRoute "api" $ PathRoute "users" $ DynamicRoute "pk" $ MethodRoute "GET"
 
+listUserRoute :: Route
+listUserRoute = PathRoute "api" $ PathRoute "users" $ MethodRoute "GET"
+
 updateUserRoute :: Route
 updateUserRoute =
     PathRoute "api" $ PathRoute "users" $ DynamicRoute "pk" $ MethodRoute
@@ -63,11 +66,12 @@ traverseRoute req route = checkRoute route
     checkRoute (DynamicRoute r rs) (x : xs) method pks =
         checkRoute rs xs method ((r, x) : pks)
 
-routes :: [(Route, Handler)]
-routes =
+routeTable :: [(Route, Handler)]
+routeTable =
     [ (createUserRoute  , createUserHandler)
-    , (retrieveUserRoute, retrieveUserHandler)
+    , (retrieveUserRoute, withPermission retrieveUserHandler [Admin])
     , (updateUserRoute  , updateUserHandler)
+    , (listUserRoute    , withPermission listUserHandler [Admin])
     ]
 
 route :: C.Config -> [(Route, Handler)] -> Request -> IO Response

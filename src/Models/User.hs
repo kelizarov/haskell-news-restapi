@@ -1,14 +1,20 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module Models.User where
 
 import           Data.Aeson
+import           Data.Proxy
 import qualified Data.Text                     as T
 import qualified Core.Time                     as Time
 import           Database.PostgreSQL.Simple.ToRow
 import           Database.PostgreSQL.Simple.FromRow
 import           Database.PostgreSQL.Simple.ToField
+import qualified Database.PostgreSQL.Simple    as PSQL
+
+
+import           Core.Database
 
 
 data User = User {
@@ -58,12 +64,33 @@ data UserRaw = UserRaw {
 
 instance FromJSON UserRaw where
     parseJSON (Object v) =
-        UserRaw
-            <$> v
-            .:  "first_name"
-            <*> v
-            .:  "last_name"
-            <*> v
-            .:! "is_admin"
+        UserRaw <$> v .: "first_name" <*> v .: "last_name" <*> v .:! "is_admin"
+
+instance Persistent User where
+    tableName _ = "users"
+
+    update conn User {..} = do
+        (obj : _) <- PSQL.query
+            conn
+            q
+            (userFirstName, userLastName, userIsAdmin, userId)
+        pure obj
+      where
+        q =
+            "UPDATE "
+                <> tableName (Proxy :: Proxy User)
+                <> "SET (first_name, last_name, is_admin) = (?, ?, ?) WHERE id = ? RETRURNING *;"
+
+
+    insert conn User {..} = do
+        (obj : _) <- PSQL.query conn
+                                q
+                                (userFirstName, userLastName, userIsAdmin)
+        pure obj
+      where
+        q =
+            "INSERT INTO "
+                <> tableName (Proxy :: Proxy User)
+                <> "(first_name, last_name, is_admin) VALUES (?, ?, ?) RETRURNING *;"
 
 

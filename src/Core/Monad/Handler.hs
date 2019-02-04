@@ -13,6 +13,7 @@ import qualified Data.Text                     as T
 import qualified Data.ByteString.Char8         as BS
 
 import           Models.User
+import           Models.Post
 import qualified Core.Database                 as DB
 import qualified Core.Config                   as C
 
@@ -51,6 +52,7 @@ getRequestUser = do
     pks  <- asks hPks
     liftIO $ getUser req conn
 
+
 getUser :: Request -> PSQL.Connection -> IO (Maybe User)
 getUser req conn =
     case
@@ -59,7 +61,7 @@ getUser req conn =
         of
             Nothing  -> pure Nothing
             Just uId -> do
-                res <- DB.selectUser conn uId
+                res <- EX.try $ DB.select conn uId
                 either error success res
               where
                 error :: EX.SomeException -> IO (Maybe User)

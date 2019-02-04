@@ -15,18 +15,18 @@ import           Models.User
 import           Core.Monad.Handler
 import qualified Core.Config                   as C
 
-data Permission = IsAdmin | OwnerOf
+data Permission = Admin | Owner | Author
 
-processHandler :: Handler -> [Permission] -> Handler
-processHandler handler [] = handler
-processHandler handler ps = do
+withPermission :: Handler -> [Permission] -> Handler
+withPermission handler [] = handler
+withPermission handler ps = do
     user <- getRequestUser
     case user of
         Nothing -> responseError "Permission denied"
-        Just u | True      -> handler
-               | otherwise -> responseError "Permission denied"
+        Just u | all (checkPermission u) ps -> handler
+               | otherwise                  -> responseError "Permission denied"
+  where
+    checkPermission user Admin = userIsAdmin user
+    checkPermission user Owner = True
+    checkPermission user _     = True
 
-isAllowed :: User -> Permission -> Bool
-isAllowed user IsAdmin = undefined
-isAllowed user OwnerOf = undefined
-isAllowed _    _       = False
