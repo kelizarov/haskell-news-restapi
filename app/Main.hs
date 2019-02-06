@@ -3,10 +3,14 @@ module Main where
 
 import           Network.Wai
 import           Network.HTTP.Types
+import           Data.Text
 import           Network.Wai.Handler.Warp       ( run )
+import qualified Core.Monad.Logger               as L
 import qualified Data.ByteString.Char8         as BS
-import API.Router (route, routeTable)
-import qualified Core.Config as C
+import           API.Router                     ( route
+                                                , routeTable
+                                                )
+import qualified Core.Config                   as C
 
 withLogging :: Middleware
 withLogging app req respond = app req $ \response -> do
@@ -30,7 +34,6 @@ application :: C.Config -> Application
 application conf req respond = route conf routeTable req >>= respond
 
 main :: IO ()
-main = do
-    putStrLn "Serving at http://localhost:8000"
+main = L.withStdoutLogging $ do
     conf <- C.loadConfig
     run 8000 $ withLogging (application conf)

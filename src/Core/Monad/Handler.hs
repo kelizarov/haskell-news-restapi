@@ -14,6 +14,7 @@ import qualified Data.ByteString.Char8         as BS
 
 import           Models.User
 import           Models.Post
+import Core.Monad.Logger
 import qualified Core.Database                 as DB
 import qualified Core.Config                   as C
 
@@ -29,6 +30,12 @@ data HandlerEnv = HandlerEnv {
 newtype MonadHandler a = MonadHandler {
     runMonadHandler :: ReaderT HandlerEnv IO a
 } deriving (Functor, Applicative, Monad, MonadIO, MonadReader HandlerEnv)
+
+instance MonadLogger MonadHandler where
+    logDebug = liftIO . logDebug
+    logInfo = liftIO . logInfo
+    logWarn = liftIO . logWarn
+    logError = liftIO . logError
 
 runHandler
     :: C.Config

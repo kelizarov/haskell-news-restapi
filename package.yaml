@@ -33,6 +33,7 @@ dependencies:
 - bytestring
 - configurator
 - mtl
+- logging
 
 library:
   source-dirs: src
@@ -47,6 +48,8 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - restapi
+    default-extensions:
+      - OverloadedStrings
 
 tests:
   restapi-test:

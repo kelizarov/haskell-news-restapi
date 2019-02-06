@@ -24,6 +24,7 @@ import qualified Data.ByteString.Lazy.Char8    as LBS
 
 import           Models.User
 import           Core.Monad.Handler
+import Core.Monad.Logger
 import qualified Core.Database                 as DB
 import qualified Core.Config                   as C
 
@@ -39,6 +40,7 @@ createUserHandler :: Handler
 createUserHandler = do
     req  <- asks hRequest
     body <- liftIO $ strictRequestBody req
+    logDebug . pack . show $ body
     either errorValidation successValidation (eitherDecode body)
   where
     errorValidation _ = responseError "Error parsing JSON"
