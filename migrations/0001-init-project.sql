@@ -44,24 +44,24 @@ CREATE TABLE tags (
 CREATE TABLE post_tags (
     tag_id integer REFERENCES tags,
     post_id integer REFERENCES posts,
-    PRIMARY KEY (tag_id, news_id)
+    PRIMARY KEY (tag_id, post_id)
 );
 
 CREATE TABLE comments (
     id serial PRIMARY KEY,
     created_on timestamp with time zone NOT NULL,
     user_id integer REFERENCES users,
-    text text
+    content text
 );
 
 CREATE TABLE post_comments (
     comment_id integer REFERENCES comments,
-    post_id integer REFERENCES posts
+    post_id integer REFERENCES posts,
     PRIMARY KEY (comment_id, post_id)
 );
 
 CREATE TABLE post_pictures (
     picture_id integer REFERENCES pictures,
     post_id integer REFERENCES posts,
-    PRIMARY KEY (picture_id, news_id)
+    PRIMARY KEY (picture_id, post_id)
 );
