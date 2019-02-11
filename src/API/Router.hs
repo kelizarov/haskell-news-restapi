@@ -19,6 +19,8 @@ import Network.Wai
 import Text.Read
 
 type Path = [T.Text]
+type Route = (Path, Method, Handler)
+type Routes = [Route]
 
 traverseRoute :: Request -> Path -> Method -> (Bool, [(T.Text, T.Text)])
 traverseRoute req route method
@@ -33,17 +35,17 @@ traverseRoute req route method
       | x == y = (True, pks)
       | otherwise = (False, [])
 
-routeTable :: [(Path, Method, Handler)]
+routeTable :: Routes
 routeTable =
   [ (["api", "users"], methodPost, withPermission createUserHandler [])
-  , ( ["api", "users", ":id"]
+  , ( ["api", "users", ":pk"]
     , methodGet
     , withPermission retrieveUserHandler [Admin])
-  , (["api", "users", ":id"], methodPatch, withPermission updateUserHandler [])
-  , (["api", "users", ":id"], methodGet, withPermission listUserHandler [Admin])
+  , (["api", "users", ":pk"], methodPatch, withPermission updateUserHandler [])
+  , (["api", "users", ":pk"], methodGet, withPermission listUserHandler [Admin])
   ]
 
-route :: C.Config -> [(Path, Method, Handler)] -> Request -> IO Response
+route :: C.Config -> Routes -> Request -> IO Response
 route _ [] _ = responseError "Resource not found"
 route conf (x:xs) req =
   case r of

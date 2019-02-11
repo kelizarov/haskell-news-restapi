@@ -1,5 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE InstanceSigs #-}
 
 module Models.User where
@@ -40,7 +41,7 @@ instance ToRow User where
   toRow User {..} =
     [ toField userFirstName
     , toField userLastName
-    , toField userPicture
+    -- , toField userPicture
     , toField userIsAdmin
     ]
 
@@ -76,11 +77,11 @@ instance Persistent User where
     where
       q =
         "UPDATE " <> tableName (Proxy :: Proxy User) <>
-        "SET (first_name, last_name, is_admin) = (?, ?, ?) WHERE id = ? RETRURNING *;"
+        "SET (first_name, last_name, is_admin) = (?, ?, ?) WHERE id = ? RETURNING *;"
   insert conn User {..} = do
     (obj:_) <- PSQL.query conn q (userFirstName, userLastName, userIsAdmin)
     pure obj
     where
       q =
         "INSERT INTO " <> tableName (Proxy :: Proxy User) <>
-        "(first_name, last_name, is_admin) VALUES (?, ?, ?) RETRURNING *;"
+        "(first_name, last_name, is_admin, created_on) VALUES (?, ?, ?, CURRENT_TIMESTAMP) RETURNING *;"
