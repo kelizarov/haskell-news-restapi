@@ -64,3 +64,6 @@ tests:
     - hspec
     - tasty
     - tasty-hspec
+    - sqlite-simple
+    - mtl
+

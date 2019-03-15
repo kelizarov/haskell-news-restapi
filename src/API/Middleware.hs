@@ -13,6 +13,7 @@ import qualified Data.Text as T
 import Models.User
 import Network.Wai
 import Text.Read
+import Control.Monad.Except
 
 data Permission
   = Admin
@@ -24,11 +25,21 @@ withPermission handler [] = handler
 withPermission handler ps = do
   user <- getRequestUser
   case user of
-    Nothing -> responseError "Permission denied"
+    Nothing -> throwError Forbidden
     Just u
       | all (checkPermission u) ps -> handler
-      | otherwise -> responseError "Permission denied"
+      | otherwise -> throwError Forbidden
   where
     checkPermission user Admin = userIsAdmin user
     checkPermission user Owner = True
     checkPermission user _ = True
+
+getRequestUser :: MonadHandler (Maybe User)
+getRequestUser = do
+  conn <- asks hConnection
+  req <- asks hRequest
+  pks <- asks hPks
+  case lookup "Authorization" (requestHeaders req) >>= (readMaybe . BS.unpack) of
+    Nothing -> pure Nothing
+    Just uId -> getUser uId
+  

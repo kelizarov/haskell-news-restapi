@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module API.Handlers
   ( Handler
@@ -11,10 +12,11 @@ module API.Handlers
   ) where
 
 import qualified Control.Exception as EX
+import Control.Monad.Except
+import API.Responses
 import Control.Monad.IO.Class
 import Control.Monad.Reader
 import qualified Core.Config as C
-import qualified Core.Database as DB
 import Core.Monad.Handler
 import Core.Monad.Logger
 import Data.Aeson
@@ -27,66 +29,36 @@ import qualified Network.HTTP.Types as HTTP
 import Network.Wai
 import Text.Read
 
-responseOk :: Applicative m => LBS.ByteString -> m Response
-responseOk b =
-  pure $ responseLBS HTTP.status200 [(HTTP.hContentType, "text/plain")] b
-
-responseError :: Applicative m => LBS.ByteString -> m Response
-responseError b =
-  pure $ responseLBS HTTP.status400 [(HTTP.hContentType, "text/plain")] b
-
-createUserHandler :: Handler
+createUserHandler :: MonadHandler Response
 createUserHandler = do
   req <- asks hRequest
   body <- liftIO $ strictRequestBody req
   logDebug . pack . show $ body
   either errorValidation successValidation (eitherDecode body)
   where
-    errorValidation _ = responseError "Error parsing JSON"
+    errorValidation err = throwError $ ParseError "Error parsing JSON"
     successValidation d = do
       conn <- asks hConnection
-      query <-
-        liftIO $
-        EX.try $
-        DB.insert
-          conn
-          defaultUser
-            { userFirstName = userRawFirstName d
-            , userLastName = userRawLastName d
-            , userIsAdmin = fromMaybe False (userRawIsAdmin d)
-            }
-      either errorResponse successResponse query
-      where
-        errorResponse :: EX.SomeException -> MonadHandler Response
-        errorResponse err = responseError $ (LBS.pack . show) err
-        successResponse d = responseOk $ encode d
+      user <- createUser d
+      (responseOk . encode) user
 
-retrieveUserHandler :: Handler
+retrieveUserHandler :: MonadHandler Response
 retrieveUserHandler = do
   pks <- asks hPks
   case lookup "pk" pks >>= (readMaybe . unpack) of
-    Nothing -> responseError "Wrong pk"
+    Nothing -> throwError $ SQLError "Wrong pk"
     Just pk -> do
       conn <- asks hConnection
-      res <- liftIO $ EX.try $ DB.select conn pk
-      either errorResponse successResponse res
-  where
-    errorResponse :: EX.SomeException -> MonadHandler Response
-    errorResponse err = responseError $ (LBS.pack . show) err
-    successResponse :: Maybe User -> MonadHandler Response
-    successResponse Nothing = responseError "Object not found"
-    successResponse (Just user) = responseOk $ encode user
+      res <- getUser pk
+      case res of
+        Nothing -> throwError $ SQLError "User not found"
+        Just user -> (responseOk . encode) user
 
-listUserHandler :: Handler
+listUserHandler :: MonadHandler Response
 listUserHandler = do
   conn <- asks hConnection
-  res <- liftIO $ EX.try $ DB.list conn (20, 0)
-  either error success res
-  where
-    error :: EX.SomeException -> MonadHandler Response
-    error err = responseError $ (LBS.pack . show) err
-    success :: [User] -> MonadHandler Response
-    success us = responseOk $ encode us
+  res <- listUser (0, 0)
+  (responseOk . encode) res
 
-updateUserHandler :: Handler
+updateUserHandler :: MonadHandler Response
 updateUserHandler = responseOk "Update User Route!"

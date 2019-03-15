@@ -2,10 +2,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Models.User where
 
+import Control.Monad.Reader
 import Core.Database
+import Core.Monad.Handler
 import qualified Core.Time as Time
 import Data.Aeson
 import Data.Proxy
@@ -41,7 +44,7 @@ instance ToRow User where
   toRow User {..} =
     [ toField userFirstName
     , toField userLastName
-    -- , toField userPicture
+    , toField userPicture
     , toField userIsAdmin
     ]
 
@@ -69,19 +72,33 @@ instance FromJSON UserRaw where
   parseJSON (Object v) =
     UserRaw <$> v .: "first_name" <*> v .: "last_name" <*> v .:! "is_admin"
 
-instance Persistent User where
-  tableName _ = "users"
-  update conn id User {..} = do
-    (obj:_) <- PSQL.query conn q (userFirstName, userLastName, userIsAdmin, id)
+class UserDB m where
+  getUser :: Int -> m (Maybe User)
+  createUser :: UserRaw -> m User
+  listUser :: (Int, Int) -> m [User]
+  updateUser :: Int -> User -> m (Maybe User)
+
+instance UserDB MonadHandler where
+  getUser id = do
+    conn <- asks hConnection
+    res <- liftIO $ PSQL.query conn q [id]
+    case res of
+      [] -> pure Nothing
+      (obj:_) -> pure $ Just obj
+    where
+      q = "SELECT * FROM users WHERE id = ?;"
+  createUser UserRaw {..} = do
+    conn <- asks hConnection
+    (obj:_) <-
+      liftIO
+        (PSQL.query conn q (userRawFirstName, userRawLastName, userRawIsAdmin) :: IO [User])
     pure obj
     where
       q =
-        "UPDATE " <> tableName (Proxy :: Proxy User) <>
-        "SET (first_name, last_name, is_admin) = (?, ?, ?) WHERE id = ? RETURNING *;"
-  insert conn User {..} = do
-    (obj:_) <- PSQL.query conn q (userFirstName, userLastName, userIsAdmin)
-    pure obj
+        "INSERT INTO users (first_name, last_name, is_admin, created_on) VALUES (?, ?, ?, CURRENT_TIMESTAMP) RETURNING *;"
+  listUser (offset, limit) = do
+    conn <- asks hConnection
+    liftIO $ PSQL.query conn q ()
     where
-      q =
-        "INSERT INTO " <> tableName (Proxy :: Proxy User) <>
-        "(first_name, last_name, is_admin, created_on) VALUES (?, ?, ?, CURRENT_TIMESTAMP) RETURNING *;"
+      q = "SELECT * FROM users;"
+  updateUser id user = undefined

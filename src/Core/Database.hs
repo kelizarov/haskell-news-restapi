@@ -44,26 +44,3 @@ migrate =
       _ -> return ()
   where
     cmds = [MigrationInitialization, MigrationDirectory "./migrations"]
-
-class Persistent a where
-  tableName :: Proxy a -> PSQL.Query
-  update ::
-       (PSQL.ToRow a, PSQL.FromRow a) => PSQL.Connection -> Int -> a -> IO a
-  insert :: (PSQL.ToRow a, PSQL.FromRow a) => PSQL.Connection -> a -> IO a
-  list :: PSQL.Connection -> (Int, Int) -> IO [a]
-  select :: PSQL.Connection -> Int -> IO (Maybe a)
-  default list :: (PSQL.FromRow a) =>
-    PSQL.Connection -> (Int, Int) -> IO [a]
-  list conn (limit, offset) = PSQL.query conn q (limit, offset)
-    where
-      q =
-        "SELECT * FROM " <> tableName (Proxy :: Proxy a) <> " LIMIT ? OFFSET ?;"
-  default select :: (PSQL.FromRow a) =>
-    PSQL.Connection -> Int -> IO (Maybe a)
-  select conn id = do
-    res <- PSQL.query conn q [id]
-    case res of
-      [] -> pure Nothing
-      (obj:_) -> pure $ Just obj
-    where
-      q = "SELECT * FROM " <> tableName (Proxy :: Proxy a) <> " WHERE id = ?;"
