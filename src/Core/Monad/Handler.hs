@@ -13,7 +13,6 @@ import Control.Monad.Reader
 import Control.Monad.Fail
 import qualified Core.Config as C
 import qualified Core.Database as DB
-import Core.Monad.Database
 import Core.Monad.Logger
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Text as T
