@@ -2,14 +2,8 @@
 
 module API.Router where
 
-import API.Handlers
-import API.Responses
-import API.Middleware
 import qualified Control.Exception as EX
 import Control.Monad
-import qualified Core.Config as C
-import qualified Core.Database as DB
-import Core.Monad.Handler
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Data.List as L
@@ -21,13 +15,23 @@ import Network.HTTP.Types
 import Network.Wai
 import Text.Read
 
+import API.Handlers
+import API.Middleware
+import API.Responses
+import qualified Core.Config as C
+import qualified Core.Database as DB
+import Core.Exceptions
+import Core.Monad.Handler
+
 type Path = [T.Text]
 
-type Route = (Path, Method, Handler)
+type Route = (Path, Method, MonadHandler Response)
 
 type Routes = [Route]
 
-traverseRoute :: Request -> Path -> Method -> (Bool, [(T.Text, T.Text)])
+type PK = (T.Text, T.Text)
+
+traverseRoute :: Request -> Path -> Method -> (Bool, [PK])
 traverseRoute req route method
   | method /= requestMethod req = (False, [])
   | otherwise = checkRoute (T.unpack <$> route) (T.unpack <$> pathInfo req) []
@@ -42,12 +46,10 @@ traverseRoute req route method
 
 routeTable :: Routes
 routeTable =
-  [ (["api", "users"], methodPost, withPermission createUserHandler [])
-  , ( ["api", "users", ":pk"]
-    , methodGet
-    , withPermission retrieveUserHandler [Admin])
-  , (["api", "users", ":pk"], methodPatch, withPermission updateUserHandler [])
-  , (["api", "users", ":pk"], methodGet, withPermission listUserHandler [Admin])
+  [ (["api", "users"], methodPost, createUserHandler)
+  , (["api", "users", ":pk"], methodGet, retrieveUserHandler)
+  , (["api", "users", ":pk"], methodPatch, updateUserHandler)
+  , (["api", "users"], methodGet, listUserHandler)
   ]
 
 route :: C.Config -> Routes -> Request -> IO Response

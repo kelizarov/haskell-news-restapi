@@ -8,11 +8,12 @@ module Core.Monad.Handler where
 
 import qualified Control.Exception as EX
 import Control.Monad.Except
+import Control.Monad.Fail
 import Control.Monad.IO.Class
 import Control.Monad.Reader
-import Control.Monad.Fail
 import qualified Core.Config as C
 import qualified Core.Database as DB
+import Core.Exceptions
 import Core.Monad.Logger
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Text as T
@@ -21,20 +22,12 @@ import Models.Post
 import Network.Wai
 import Text.Read
 
-type Handler = MonadHandler Response
-
 data HandlerEnv = HandlerEnv
   { hConfig :: C.Config
   , hPks :: [(T.Text, T.Text)]
   , hRequest :: Request
   , hConnection :: PSQL.Connection
   }
-
-data HandlerError err
-  = ParseError err
-  | SQLError err
-  | Forbidden
-  deriving (Show)
 
 newtype MonadHandler a = MonadHandler
   { runMonadHandler :: ExceptT (HandlerError String) (ReaderT HandlerEnv IO) a

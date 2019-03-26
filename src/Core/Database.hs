@@ -1,8 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ConstrainedClassMethods #-}
 
@@ -25,11 +23,11 @@ connectInfo conf = do
   database <- C.get conf "database.database"
   pure $
     PSQL.ConnectInfo
-      { connectHost = host
-      , connectPort = port
-      , connectUser = user
-      , connectPassword = password
-      , connectDatabase = database
+      { PSQL.connectHost = host
+      , PSQL.connectPort = port
+      , PSQL.connectUser = user
+      , PSQL.connectPassword = password
+      , PSQL.connectDatabase = database
       }
 
 connect :: C.Config -> IO PSQL.Connection

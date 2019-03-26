@@ -2,8 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module API.Handlers
-  ( Handler
-  , createUserHandler
+  ( createUserHandler
   , retrieveUserHandler
   , updateUserHandler
   , listUserHandler
@@ -11,12 +10,13 @@ module API.Handlers
   , responseError
   ) where
 
+import API.Responses
 import qualified Control.Exception as EX
 import Control.Monad.Except
-import API.Responses
 import Control.Monad.IO.Class
 import Control.Monad.Reader
 import qualified Core.Config as C
+import Core.Exceptions
 import Core.Monad.Handler
 import Core.Monad.Logger
 import Data.Aeson
@@ -38,7 +38,6 @@ createUserHandler = do
   where
     errorValidation err = throwError $ ParseError "Error parsing JSON"
     successValidation d = do
-      conn <- asks hConnection
       user <- createUser d
       (responseOk . encode) user
 
@@ -49,16 +48,25 @@ retrieveUserHandler = do
     Nothing -> throwError $ SQLError "Wrong pk"
     Just pk -> do
       conn <- asks hConnection
-      res <- getUser pk
+      res <- queryUser $ UserById pk
       case res of
         Nothing -> throwError $ SQLError "User not found"
         Just user -> (responseOk . encode) user
 
 listUserHandler :: MonadHandler Response
 listUserHandler = do
-  conn <- asks hConnection
-  res <- listUser (0, 0)
-  (responseOk . encode) res
+  pks <- asks hPks
+  queryUser (UserList (0, 20)) >>= responseOk . encode
 
 updateUserHandler :: MonadHandler Response
-updateUserHandler = responseOk "Update User Route!"
+updateUserHandler = do
+  pks <- asks hPks
+  case lookup "pk" pks >>= (readMaybe . unpack) of
+    Nothing -> throwError $ SQLError "Wrong pk"
+    Just pk -> do
+      req <- asks hRequest
+      body <- liftIO $ strictRequestBody req
+      either errorValidation (successValidation pk) (eitherDecode body)
+  where
+    errorValidation err = throwError $ ParseError "Error parsing JSON"
+    successValidation pk d = updateUser pk d >>= responseOk . encode

@@ -6,7 +6,6 @@ import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Network.HTTP.Types as HTTP
 import Network.Wai
 
-
 responseOk :: Monad m => LBS.ByteString -> m Response
 responseOk b =
   pure $ responseLBS HTTP.status200 [(HTTP.hContentType, "text/plain")] b

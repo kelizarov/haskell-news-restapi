@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE GADTs #-}
 
 module Models.User where
 
@@ -19,67 +20,52 @@ import Database.PostgreSQL.Simple.ToField
 import Database.PostgreSQL.Simple.ToRow
 
 data User = User
-  { userId :: Int
-  , userFirstName :: T.Text
-  , userLastName :: T.Text
-  , userPicture :: Maybe Int
-  , userCreatedOn :: Time.UTCTime
-  , userIsAdmin :: Bool
+  { uId :: Int
+  , uFirstName :: T.Text
+  , uLastName :: T.Text
+  , uPicture :: Maybe Int
+  , uCreatedOn :: Time.UTCTime
+  , uIsAdmin :: Bool
   } deriving (Show)
-
-defaultUser =
-  User
-    { userId = -1
-    , userFirstName = ""
-    , userLastName = ""
-    , userPicture = Nothing
-    , userCreatedOn = Time.defaultToday
-    , userIsAdmin = False
-    }
 
 instance FromRow User where
   fromRow = User <$> field <*> field <*> field <*> field <*> field <*> field
 
-instance ToRow User where
-  toRow User {..} =
-    [ toField userFirstName
-    , toField userLastName
-    , toField userPicture
-    , toField userIsAdmin
-    ]
-
 instance ToJSON User where
   toJSON User {..} =
     object
-      [ "id" .= userId
-      , "first_name" .= userFirstName
-      , "last_name" .= userLastName
-      , "created_on" .= userCreatedOn
-      , "is_admin" .= userIsAdmin
+      [ "id" .= uId
+      , "first_name" .= uFirstName
+      , "last_name" .= uLastName
+      , "created_on" .= uCreatedOn
+      , "is_admin" .= uIsAdmin
       ]
 
 data UserRaw = UserRaw
-  { userRawFirstName :: T.Text
-  , userRawLastName :: T.Text
-  , userRawIsAdmin :: Maybe Bool
+  { urFirstName :: T.Text
+  , urLastName :: T.Text
+  , urIsAdmin :: Maybe Bool
   } deriving (Show, Eq)
 
 instance ToRow UserRaw where
   toRow UserRaw {..} =
-    [toField userRawFirstName, toField userRawLastName, toField userRawIsAdmin]
+    [toField urFirstName, toField urLastName, toField urIsAdmin]
 
 instance FromJSON UserRaw where
   parseJSON (Object v) =
     UserRaw <$> v .: "first_name" <*> v .: "last_name" <*> v .:! "is_admin"
 
-class UserDB m where
-  getUser :: Int -> m (Maybe User)
-  createUser :: UserRaw -> m User
-  listUser :: (Int, Int) -> m [User]
-  updateUser :: Int -> User -> m (Maybe User)
+data UserQuery a where
+  UserById :: Int -> UserQuery (Maybe User)
+  UserList :: (Int, Int) -> UserQuery [User]
 
-instance UserDB MonadHandler where
-  getUser id = do
+class MonadUserRepo m where
+  queryUser :: UserQuery a -> m a
+  createUser :: UserRaw -> m User
+  updateUser :: Int -> UserRaw -> m (Maybe User)
+
+instance MonadUserRepo MonadHandler where
+  queryUser (UserById id) = do
     conn <- asks hConnection
     res <- liftIO $ PSQL.query conn q [id]
     case res of
@@ -87,18 +73,30 @@ instance UserDB MonadHandler where
       (obj:_) -> pure $ Just obj
     where
       q = "SELECT * FROM users WHERE id = ?;"
+  queryUser (UserList params) = do
+    conn <- asks hConnection
+    liftIO (PSQL.query conn q params :: IO [User])
+    where
+      q = "SELECT * FROM users OFFSET ? LIMIT ?;"
   createUser UserRaw {..} = do
     conn <- asks hConnection
     (obj:_) <-
       liftIO
-        (PSQL.query conn q (userRawFirstName, userRawLastName, userRawIsAdmin) :: IO [User])
+        (PSQL.query conn q (urFirstName, urLastName, urIsAdmin) :: IO [User])
     pure obj
     where
       q =
-        "INSERT INTO users (first_name, last_name, is_admin, created_on) VALUES (?, ?, ?, CURRENT_TIMESTAMP) RETURNING *;"
-  listUser (offset, limit) = do
+        "INSERT INTO users (first_name, last_name, is_admin, created_on) \
+        \VALUES (?, ?, ?, CURRENT_TIMESTAMP) RETURNING *;"
+  updateUser id UserRaw {..} = do
     conn <- asks hConnection
-    liftIO $ PSQL.query conn q ()
+    res <-
+      liftIO
+        (PSQL.query conn q (urFirstName, urLastName, urIsAdmin, id) :: IO [User])
+    case res of
+      [] -> pure Nothing
+      (obj:_) -> pure $ Just obj
     where
-      q = "SELECT * FROM users;"
-  updateUser id user = undefined
+      q =
+        "UPDATE users SET (first_name, last_name, is_admin) = (?, ?, ?) \
+        \WHERE id = ? RETURNING *;"
