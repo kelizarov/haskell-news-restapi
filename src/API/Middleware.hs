@@ -19,20 +19,20 @@ import Core.Monad.Handler
 
 data Permission
   = Admin
-  | Authorized
   | Owner
   | Author
+  | Authorized
 
 withPermission :: Permission -> MonadHandler Bool
 withPermission Admin = do
   user <- getRequestUser
   case user of
-    Nothing -> throwError Unathuorized
+    Nothing -> throwError Unauthorized
     Just u -> return $ uIsAdmin u
 withPermission Authorized = do
   user <- getRequestUser
   case user of
-    Nothing -> throwError Unathuorized
+    Nothing -> throwError Unauthorized
     Just _ -> return True
 withPermission _ = return True
 

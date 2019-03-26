@@ -75,4 +75,4 @@ route conf (x:xs) req =
     left (SQLError err) =
       (responseError . LBS.pack) $ "SQL error occured: " <> err
     left Forbidden = (responseError . LBS.pack) "Access denied"
-    left Unathuorized = (responseError . LBS.pack) "Unauthorized"
+    left Unauthorized = (responseError . LBS.pack) "Unauthorized"
