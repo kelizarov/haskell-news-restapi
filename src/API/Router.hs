@@ -4,6 +4,7 @@ module API.Router where
 
 import qualified Control.Exception as EX
 import Control.Monad
+import Control.Monad.Except
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Data.List as L
@@ -25,7 +26,7 @@ import Core.Monad.Handler
 
 type Path = [T.Text]
 
-type Route = (Path, Method, MonadHandler Response)
+type Route = (Path, Method, MonadHandler Response, Permission)
 
 type Routes = [Route]
 
@@ -46,10 +47,10 @@ traverseRoute req route method
 
 routeTable :: Routes
 routeTable =
-  [ (["api", "users"], methodPost, createUserHandler)
-  , (["api", "users", ":pk"], methodGet, retrieveUserHandler)
-  , (["api", "users", ":pk"], methodPatch, updateUserHandler)
-  , (["api", "users"], methodGet, listUserHandler)
+  [ (["api", "users"], methodPost, createUserHandler, Admin)
+  , (["api", "users", ":pk"], methodGet, retrieveUserHandler, Authorized)
+  , (["api", "users", ":pk"], methodPatch, updateUserHandler, Authorized)
+  , (["api", "users"], methodGet, listUserHandler, Authorized)
   ]
 
 route :: C.Config -> Routes -> Request -> IO Response
@@ -58,15 +59,20 @@ route conf (x:xs) req =
   case r of
     (True, pk) ->
       EX.bracket openConnection PSQL.close $ \conn -> do
-        res <- runHandler conf pk req conn handler
+        res <- runHandler conf pk req conn $ do
+          isAllowed <- withPermission permission
+          if isAllowed
+            then handler
+            else throwError Forbidden
         either left pure res
     (False, _) -> route conf xs req
   where
     r = traverseRoute req path method
     openConnection = DB.connect conf
-    (path, method, handler) = x
+    (path, method, handler, permission) = x
     left (ParseError err) =
       (responseError . LBS.pack) $ "Error parsing data: " <> err
     left (SQLError err) =
       (responseError . LBS.pack) $ "SQL error occured: " <> err
     left Forbidden = (responseError . LBS.pack) "Access denied"
+    left Unathuorized = (responseError . LBS.pack) "Unauthorized"

@@ -2,12 +2,10 @@
 
 module API.Middleware where
 
-import API.Handlers
 import qualified Control.Exception as EX
 import Control.Monad.Except
 import Control.Monad.Reader
 import qualified Core.Config as C
-import Core.Monad.Handler
 import qualified Data.ByteString.Char8 as BS
 import Data.Maybe
 import qualified Data.Text as T
@@ -15,15 +13,29 @@ import Models.User
 import Network.Wai
 import Text.Read
 
+import API.Handlers
+import Core.Exceptions
+import Core.Monad.Handler
+
 data Permission
   = Admin
   | Authorized
   | Owner
   | Author
 
-withPermission :: [Permission] -> MonadHandler Bool
-withPermission _ = undefined
-    
+withPermission :: Permission -> MonadHandler Bool
+withPermission Admin = do
+  user <- getRequestUser
+  case user of
+    Nothing -> throwError Unathuorized
+    Just u -> return $ uIsAdmin u
+withPermission Authorized = do
+  user <- getRequestUser
+  case user of
+    Nothing -> throwError Unathuorized
+    Just _ -> return True
+withPermission _ = return True
+
 getRequestUser :: MonadHandler (Maybe User)
 getRequestUser = do
   conn <- asks hConnection

@@ -4,5 +4,5 @@ data HandlerError err
   = ParseError err
   | SQLError err
   | Forbidden
-  | Unatuhorized
+  | Unathuorized
   deriving (Show)
