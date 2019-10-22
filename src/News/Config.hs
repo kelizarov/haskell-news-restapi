@@ -10,17 +10,11 @@ import qualified Data.Text                     as T
 
 import           News.Env                       ( Env(..) )
 
-newtype Port =
-  Port Int
-  deriving (Show, Eq)
+type Port = Int
 
-newtype Host =
-  Host T.Text
-  deriving (Show, Eq)
+type Host = T.Text
 
-newtype Debug =
-  Debug Bool
-  deriving (Show, Eq)
+type Debug = Bool
 
 data AppConfig = AppConfig
   { acEnv :: Env
@@ -35,7 +29,7 @@ loadConfig env = do
   port     <- C.require confFile "app.port"
   host     <- C.require confFile "app.host"
   debug    <- C.require confFile "app.debug"
-  pure $ AppConfig env (Port port) (Host host) (Debug debug)
+  pure $ AppConfig env port host debug
 
 loadConfigFile :: Env -> IO C.Config
 loadConfigFile env = do
