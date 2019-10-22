@@ -1,5 +1,7 @@
 .stack-work/
 restapi.cabal
+stack.yaml.lock
+.vscode/
 *~
 
 # Ignore local settings in ./conf folder

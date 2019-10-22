@@ -1,12 +1,14 @@
 module Main
   ( main
-  ) where
+  )
+where
 
-import qualified RouterSpec as RS
-import Test.Tasty
-import Test.Tasty.Hspec
+import qualified RouterSpec                    as RS
+import qualified UseCases.RegisterUserSpec     as RUS
+import           Test.Tasty
+import           Test.Tasty.Hspec
 
 main :: IO ()
 main = do
-  spec <- testSpec "Router Tests" RS.spec
+  spec <- testSpec "RegisterUser spec" RUS.spec
   defaultMain (testGroup "main tests" [spec])
