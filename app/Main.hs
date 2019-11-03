@@ -38,4 +38,4 @@ application :: C.Config -> Application
 application conf req respond = route conf routeTable req >>= respond
 
 main :: IO ()
-main = App.runApp App.Dev
+main = App.app App.Dev

@@ -1,6 +1,7 @@
 module News.Config
   ( AppConfig(..)
   , loadConfig
+  , loadConfigFile
   )
 where
 
