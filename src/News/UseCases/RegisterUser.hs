@@ -2,7 +2,7 @@ module News.UseCases.RegisterUser where
 
 import qualified Data.Text                     as T
 
-import qualified News.Models.Entity            as M
+import qualified News.Models.Persisted            as M
 import qualified News.Models.User              as M
 
 data Handle m = Handle
@@ -11,7 +11,7 @@ data Handle m = Handle
   }
 
 data Result
-  = UserCreated M.User
+  = UserCreated (M.Persisted M.User)
   | TransportError T.Text
   deriving (Show, Eq)
 

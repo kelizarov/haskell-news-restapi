@@ -4,10 +4,10 @@ import           Test.Hspec
 import           Control.Monad.State            ( State )
 
 import qualified News.UseCases.RegisterUser    as UseCase
-import qualified News.Models.Entity            as M
+import qualified News.Models.Persisted            as M
 
 handle = UseCase.Handle
-  { UseCase.hSaveUser = \user -> pure $ M.Entity (M.ID 1) user
+  { UseCase.hSaveUser = \user -> pure $ M.Persisted (M.ID 1) user
   , UseCase.hLog      = \msg -> pure ()
   }
 

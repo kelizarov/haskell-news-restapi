@@ -3,30 +3,31 @@ module News.App
   )
 where
 
+import qualified Control.Exception             as EX
+import           Control.Monad.IO.Class         ( MonadIO )
+import           Control.Monad.Reader           ( MonadReader
+                                                , ReaderT
+                                                , runReaderT
+                                                )
 import qualified Data.ByteString.Char8         as BS
-import           Network.Wai
+import qualified Database.PostgreSQL.Simple    as PSQL
+import qualified Network.Wai                   as WAI
 import           Network.Wai.Handler.Warp       ( run )
-import           Network.HTTP.Types
 
 import           News.Config                    ( AppConfig(..)
                                                 , loadConfig
+                                                , loadConfigFile
                                                 )
-import           News.Server                    ( api )
 import           News.Env                       ( Env(..) )
-
-newtype AppHandle = AppHandle
-  { ahConfig :: AppConfig
-  } deriving (Show, Eq)
-
-loadAppHandle :: Env -> IO AppHandle
-loadAppHandle env = AppHandle <$> loadConfig env
-
-runApp :: AppHandle -> Application
-runApp AppHandle {..} request respond = do
-  -- TODO do handling
-  respond undefined
+import           News.AppHandle
+import           News.Server                    ( route )
+import           News.Services.Database.Config  ( connect )
 
 app :: Env -> IO ()
 app env = do
-  ah@AppHandle {..} <- loadAppHandle env
-  run (acPort ahConfig) $ runApp ah
+  conf@AppConfig {..} <- loadConfig env
+  dbConf              <- loadConfigFile env
+  run acPort $ \request respond ->
+    EX.bracket (connect dbConf) PSQL.close $ \conn -> do
+      response <- runApplication conf request conn (route request)
+      respond response

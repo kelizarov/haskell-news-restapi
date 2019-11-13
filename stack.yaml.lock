@@ -13,7 +13,7 @@ packages:
     hackage: logging-3.0.5
 snapshots:
 - completed:
-    size: 523443
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/14/0.yaml
-    sha256: 283773e7120f5446d961eab35ea95c9af9c24187cc178537bd29273200a05171
-  original: lts-14.0
+    size: 496698
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/13/10.yaml
+    sha256: cccd8a6de18d13cd00f751b25684b3ca1e548648ea41874de78904fec1b9cb36
+  original: lts-13.10

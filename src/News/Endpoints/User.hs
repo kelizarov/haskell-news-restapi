@@ -1,54 +1,70 @@
+{-# LANGUAGE ScopedTypeVariables, DeriveGeneric, DeriveAnyClass #-}
+
 module News.Endpoints.User where
 
 import qualified Control.Exception             as EX
-import           Control.Monad.Except
-import           Control.Monad.IO.Class
+import           Control.Monad.IO.Class         ( MonadIO
+                                                , liftIO
+                                                )
+import           Control.Monad.Reader           ( asks )
 import qualified Core.Config                   as C
-import           Data.Aeson
-import           Data.Text
+import           Data.Aeson                     ( ToJSON(..) )
+import qualified Data.Aeson                    as J
+import qualified Data.Text                     as T
+import qualified Data.Time                     as Time
 import qualified Database.PostgreSQL.Simple    as PSQL
-import           Network.Wai
+import           GHC.Generics
+import           Network.Wai                    ( Request
+                                                , strictRequestBody
+                                                )
 
-import qualified News.Models.Entity            as M
-import qualified News.Models.User              as M
-import qualified News.UseCases.RegisterUser    as UseCase
+import           News.AppHandle
 import           News.Config
 import           News.Env
+import qualified News.Models.Persisted            as M
+import qualified News.Models.User              as M
+import           News.Services.Database.Config
+import           News.Services.Database.Queries.User
+import qualified News.UseCases.RegisterUser    as RegisterUser
 
--- TODO move to DB layer
-connectInfo :: C.Config -> IO PSQL.ConnectInfo
-connectInfo conf = do
-  host     <- C.get conf "database.host"
-  port     <- C.get conf "database.port"
-  user     <- C.get conf "database.user"
-  password <- C.get conf "database.password"
-  database <- C.get conf "database.database"
-  pure $ PSQL.ConnectInfo { PSQL.connectHost     = host
-                          , PSQL.connectPort     = port
-                          , PSQL.connectUser     = user
-                          , PSQL.connectPassword = password
-                          , PSQL.connectDatabase = database
-                          }
+data Response a
+  = Success a
+  | InvalidRequest T.Text
+  | TransportError
+  deriving (Show, Eq)
 
-connect :: C.Config -> IO PSQL.Connection
-connect conf = connectInfo conf >>= PSQL.connect
+instance (ToJSON a) => ToJSON (Response a) where
+  toJSON (Success        a  ) = J.toJSON a
+  toJSON (InvalidRequest err) = J.object ["error" J..= err]
+  toJSON TransportError =
+    J.object ["error" J..= ("Unexpected error happened!" :: String)]
 
-createUser :: PSQL.Connection -> M.User -> IO (M.ID M.User)
-createUser conn M.User {..} = do
-  (M.PersistedUser entity : _) <-
-    PSQL.query conn q (uFirstName, uLastName, uIsAdmin) :: IO [M.PersistedUser]
-  pure $ M.getId entity
- where
-  q
-    = "INSERT INTO users (first_name, last_name, is_admin, created_on) \
-        \VALUES (?, ?, ?, CURRENT_TIMESTAMP) RETURNING *;"
+data UserSerialized = UserSerialized
+  { usId :: Int
+  , usFirstName :: T.Text
+  , usLastName :: T.Text
+  , usAvatarPath :: T.Text
+  , usCreatedAt :: Time.UTCTime
+  , usIsAdmin :: Bool
+  } deriving (Show, Eq, Generic, ToJSON)
 
-createUserHandler :: C.Config -> Request -> IO (IO UseCase.Result)
-createUserHandler conf req = EX.bracket (connect conf) PSQL.close $ \conn -> do
-  body <- strictRequestBody req
-  print body
+createUserHandler :: Application (Response UserSerialized)
+createUserHandler = do
+  req  <- asks ahRequest
+  conn <- asks ahConnection
+  body <- liftIO $ strictRequestBody req
+  liftIO $ print body
   let firstname   = "John"
       lastname    = "Doe"
-      persistUser = createUser conn
-  pure
-    $ UseCase.execute (UseCase.Handle persistUser putStrLn) firstname lastname
+      persistUser = liftIO . createUser conn
+  res <- liftIO $ RegisterUser.execute
+    (RegisterUser.Handle persistUser putStrLn)
+    firstname
+    lastname
+  pure undefined
+
+listUsersHandler :: MonadIO m => Request -> m [UserSerialized]
+listUsersHandler = undefined
+
+getUserByIdHandler :: MonadIO m => Request -> m (Maybe UserSerialized)
+getUserByIdHandler = undefined

@@ -2,29 +2,30 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module News.Server
-  ( api
+  ( route
   )
 where
 
+import           Control.Monad.IO.Class         ( MonadIO )
 import qualified Data.ByteString.Char8         as BS
-import           Network.HTTP.Types             ( statusCode )
-import           Network.Wai                    ( Middleware
-                                                , remoteHost
-                                                , requestMethod
-                                                , rawPathInfo
-                                                , rawQueryString
-                                                , responseStatus
-                                                )
-import           Network.Wai.Handler.Warp       ( run )
--- import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as LBS
 import qualified Data.List                     as L
 import qualified Data.Text                     as T
+import           Network.HTTP.Types             ( statusCode )
 import qualified Network.HTTP.Types            as HTTP
+import           Network.Wai                    ( Middleware
+                                                , rawPathInfo
+                                                , rawQueryString
+                                                , remoteHost
+                                                , requestMethod
+                                                , responseStatus
+                                                )
 import qualified Network.Wai                   as HTTP
+import           Network.Wai.Handler.Warp       ( run )
 
-import           News.Endpoints.User
 import           News.Config
+import           News.AppHandle
+import           News.Endpoints.User
 import           News.Env
 
 type Path = [T.Text]
@@ -37,15 +38,16 @@ data API
   | UNKNOWN
   deriving (Show, Eq)
 
-api :: HTTP.Request -> IO HTTP.Response
-api req = case methodAndPath req of
+route :: HTTP.Request -> Application HTTP.Response
+route req = case methodAndPath req of
   POST (matches ["api", "user"] -> Just []) -> do
-    conf <- loadConfigFile Dev
-    res  <- createUserHandler conf req
+    res <- createUserHandler
     pure $ HTTP.responseLBS HTTP.status200 [] "Success"
-  GET (matches ["api", "user", ":pk"] -> Just [userId]) -> undefined
-  PATCH (matches ["api", "user", ":pk"] -> Just [userId]) -> undefined
-  UNKNOWN -> undefined
+  GET (matches ["api", "user", ":pk"] -> Just [userId]) ->
+    pure $ HTTP.responseLBS HTTP.status501 [] ""
+  PATCH (matches ["api", "user", ":pk"] -> Just [userId]) ->
+    pure $ HTTP.responseLBS HTTP.status501 [] ""
+  UNKNOWN -> pure $ HTTP.responseLBS HTTP.status404 [] ""
 
 methodAndPath :: HTTP.Request -> API
 methodAndPath req = case getMethod of
