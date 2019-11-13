@@ -1,4 +1,4 @@
-module News.Models.Entity where
+module News.Models.Persisted where
 
 import           Database.PostgreSQL.Simple.FromRow
 import           Database.PostgreSQL.Simple.ToField
@@ -17,7 +17,7 @@ fromID (ID eId) = eId
 toID :: Int -> ID v
 toID = ID
 
-data Entity v = Entity
+data Persisted v = Persisted
   { getId :: ID v
   , getObj :: v
   } deriving (Show, Eq)
