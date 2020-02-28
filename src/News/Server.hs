@@ -20,7 +20,6 @@ import Network.Wai.Handler.Warp (run)
 import qualified Data.Aeson as J
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.ByteString.Lazy as LBS
 import qualified Data.List as L
 import qualified Data.Text as T
 import qualified Network.HTTP.Types as HTTP
