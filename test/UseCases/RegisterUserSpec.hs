@@ -7,7 +7,7 @@ import qualified News.UseCases.RegisterUser    as UseCase
 import qualified News.Models.Persisted            as M
 
 handle = UseCase.Handle
-  { UseCase.hSaveUser = \user -> pure $ M.Persisted (M.ID 1) user
+  { UseCase.hPersistUser = \user -> pure $ M.Persisted (M.ID 1) user
   , UseCase.hLog      = \msg -> pure ()
   }
 

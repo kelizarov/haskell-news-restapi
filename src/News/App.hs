@@ -1,5 +1,5 @@
 module News.App
-  ( app,
+  ( runNews,
   )
 where
 
@@ -22,15 +22,19 @@ import News.Config
   )
 import News.Env (Env (..))
 import News.Server (route)
-import News.Services.Database.Config (connect)
+import News.Services.Database.Config (connect, connectInfo)
 
-app :: Env -> IO ()
-app env = do
-  conf@AppConfig {..} <- loadConfig env
-  dbConf <- loadConfigFile env
+runNews :: IO ()
+runNews = do
+  conf@AppConfig {..} <- loadConfig Dev -- TODO read from system ENV
   putStrLn $ "Starting server on " <> show acPort <> " at " <> show acHost
-  run acPort $ \request respond ->
-    EX.bracket (connect dbConf) PSQL.close $ \conn -> do
-      putStrLn $ "Received new request"
+  run acPort $ \request respond -> do
+    dbConf <- loadConfigFile Dev
+    dbConnectionInfo <- connectInfo dbConf
+    EX.bracket (connect dbConnectionInfo) PSQL.close $ \conn -> do
+      logRequest request
       response <- runApplication conf $ route request
       respond response
+
+logRequest :: WAI.Request -> IO ()
+logRequest request = putStrLn $ "Incoming request: " <> show request
