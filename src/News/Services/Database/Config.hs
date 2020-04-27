@@ -1,15 +1,16 @@
 module News.Services.Database.Config where
 
-import qualified Core.Config as C
+import qualified Data.Configurator as C
+import qualified Data.Configurator.Types as C
 import qualified Database.PostgreSQL.Simple as PSQL
 
 connectInfo :: C.Config -> IO PSQL.ConnectInfo
 connectInfo conf = do
-  host <- C.get conf "database.host"
-  port <- C.get conf "database.port"
-  user <- C.get conf "database.user"
-  password <- C.get conf "database.password"
-  database <- C.get conf "database.database"
+  host <- C.require conf "database.host"
+  port <- C.require conf "database.port"
+  user <- C.require conf "database.user"
+  password <- C.require conf "database.password"
+  database <- C.require conf "database.database"
   pure $
     PSQL.ConnectInfo
       { PSQL.connectHost = host,
@@ -19,5 +20,5 @@ connectInfo conf = do
         PSQL.connectDatabase = database
       }
 
-connect :: C.Config -> IO PSQL.Connection
-connect conf = connectInfo conf >>= PSQL.connect
+connect :: PSQL.ConnectInfo -> IO PSQL.Connection
+connect = PSQL.connect

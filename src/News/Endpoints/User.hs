@@ -8,7 +8,6 @@ import qualified Control.Exception as EX
 import Control.Monad.Except
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (asks)
-import qualified Core.Config as C
 import Data.Aeson ((.:), FromJSON (..), ToJSON (..))
 import qualified Data.Aeson as J
 import qualified Data.Text as T
@@ -20,20 +19,16 @@ import News.AppHandle
 import News.Config
 import News.Env
 import qualified News.Models.Persisted as M
+import qualified News.Models.Server.Response as API
 import qualified News.Models.User as M
-import qualified News.Services.Database.Queries.User as DB
+import News.Services.Database.Implementation.PostgresSimple
+import qualified News.Services.Database.Query.User as Query
 import qualified News.UseCases.RegisterUser as RegisterUser
 
-data Response a
-  = Success a
-  | InvalidRequest T.Text
-  | InternalError
-  deriving (Show, Eq)
-
-instance (ToJSON a) => ToJSON (Response a) where
-  toJSON (Success a) = J.toJSON a
-  toJSON (InvalidRequest err) = J.object ["error" J..= err]
-  toJSON InternalError =
+instance (ToJSON resp) => ToJSON (API.Response resp) where
+  toJSON (API.OKResponse resp) = J.toJSON resp
+  toJSON (API.InvalidRequest err) = J.object ["error" J..= err]
+  toJSON API.InternalError =
     J.object ["error" J..= ("Unexpected error happened!" :: String)]
 
 data UserSerialized
@@ -72,17 +67,16 @@ instance FromJSON CreateUserRequest where
     J.withObject "CreateUserRequest" $ \o ->
       CreateUserRequest <$> o .: "first_name" <*> o .: "last_name"
 
--- TODO add exception handling of some sorts
-createUserEndpoint :: CreateUserRequest -> Application (Response UserSerialized)
+createUserEndpoint :: CreateUserRequest -> Application (API.Response UserSerialized)
 createUserEndpoint CreateUserRequest {..} = do
-  let hPersistUser = DB.createUser
+  let hPersistUser = Query.createUser
   let hLog = liftIO . putStrLn
   persistedUser <-
     RegisterUser.execute RegisterUser.Handle {..} curFirstName curLastName
-  pure . Success $ serializePersistedUser persistedUser
+  pure . API.OKResponse $ serializePersistedUser persistedUser
 
-listUsersEndpoint :: MonadIO m => Request -> m [UserSerialized]
+listUsersEndpoint :: Request -> Application [UserSerialized]
 listUsersEndpoint = undefined
 
-getUserByIdEndpoint :: MonadIO m => Request -> m (Maybe UserSerialized)
+getUserByIdEndpoint :: Request -> Application (Maybe UserSerialized)
 getUserByIdEndpoint = undefined

@@ -50,9 +50,9 @@ route req =
       res <- createUserEndpoint createUserRequest
       pure $ HTTP.responseLBS HTTP.status200 [] "Success"
     GET (matches ["api", "user", ":pk"] -> Just [userId]) ->
-      pure $ HTTP.responseLBS HTTP.status501 [] ""
+      pure $ HTTP.responseLBS HTTP.status404 [] ""
     PATCH (matches ["api", "user", ":pk"] -> Just [userId]) ->
-      pure $ HTTP.responseLBS HTTP.status501 [] ""
+      pure $ HTTP.responseLBS HTTP.status404 [] ""
     _ -> pure $ HTTP.responseLBS HTTP.status404 [] ""
 
 methodAndPath :: HTTP.Request -> API
