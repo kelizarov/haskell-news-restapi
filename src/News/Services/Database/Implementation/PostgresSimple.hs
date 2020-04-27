@@ -1,9 +1,10 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module News.Services.Database.Implementation.PostgresSimple
   (
-  ) where
+  )
+where
 
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Reader (asks)
@@ -12,12 +13,9 @@ import qualified Database.PostgreSQL.Simple as PSQL
 import qualified Database.PostgreSQL.Simple.FromRow as PSQL
 import qualified Database.PostgreSQL.Simple.ToField as PSQL
 import qualified Database.PostgreSQL.Simple.ToRow as PSQL
-
 import News.AppHandle
-
 import qualified News.Models.Persisted as M
 import qualified News.Models.User as M
-
 import News.Services.Database.Queries.User
 
 instance PersistentUser Application where
@@ -26,8 +24,8 @@ instance PersistentUser Application where
     conn <- asks undefined
     let query =
           "INSERT INTO users (first_name, last_name, is_admin, created_on) \
-            \VALUES (?, ?, ?, CURRENT_TIMESTAMP) RETURNING *;"
-    (entity:_) <- liftIO $ PSQL.query conn query (firstName, lastName, isAdmin)
+          \VALUES (?, ?, ?, CURRENT_TIMESTAMP) RETURNING *;"
+    (entity : _) <- liftIO $ PSQL.query conn query (firstName, lastName, isAdmin)
     pure entity
   getUserById :: Int -> Application (Maybe (M.Persisted M.User))
   getUserById userId = do

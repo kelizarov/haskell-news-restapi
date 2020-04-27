@@ -1,6 +1,7 @@
 module News.Env
-  ( Env(..)
-  ) where
+  ( Env (..),
+  )
+where
 
 data Env
   = Prod
