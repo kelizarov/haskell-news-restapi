@@ -1,11 +1,11 @@
 module News.Models.Persisted where
 
-import           Database.PostgreSQL.Simple.FromRow
-import           Database.PostgreSQL.Simple.ToField
-import           Database.PostgreSQL.Simple.ToRow
+import Database.PostgreSQL.Simple.FromRow
+import Database.PostgreSQL.Simple.ToField
+import Database.PostgreSQL.Simple.ToRow
 
-newtype ID v =
-  ID Int
+newtype ID v
+  = ID Int
   deriving (Show, Eq)
 
 instance ToRow (ID v) where
@@ -17,7 +17,9 @@ fromID (ID eId) = eId
 toID :: Int -> ID v
 toID = ID
 
-data Persisted v = Persisted
-  { getId :: ID v
-  , getObj :: v
-  } deriving (Show, Eq)
+data Persisted v
+  = Persisted
+      { getId :: ID v,
+        getObj :: v
+      }
+  deriving (Show, Eq)
